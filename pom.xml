@@ -85,13 +85,6 @@
         <type>jar</type>
       </dependency>
 
-      <dependency>
-        <groupId>org.eclipse.microprofile.config</groupId>
-        <artifactId>microprofile-config-api</artifactId>
-        <version>1.3</version>
-        <type>jar</type>
-      </dependency>
-
     </dependencies>
   </dependencyManagement>
 
@@ -146,12 +139,6 @@
       <scope>compile</scope>
     </dependency>
 
-    <dependency>
-      <groupId>org.eclipse.microprofile.config</groupId>
-      <artifactId>microprofile-config-api</artifactId>
-      <scope>compile</scope>
-    </dependency>
-    
   </dependencies>
   
   <build>
