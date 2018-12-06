@@ -107,7 +107,6 @@ public class HelidonWebServerExtension implements javax.enterprise.inject.spi.Ex
     super();
     this.errors = new ArrayList<>(3);
     this.serviceQualifiers = new HashSet<>();
-    // TODO: should be per WebServer
     Runtime.getRuntime().addShutdownHook(new Thread(this::shutDown));
   }
 
@@ -173,9 +172,7 @@ public class HelidonWebServerExtension implements javax.enterprise.inject.spi.Ex
           // Call Service#update(Routing.Rules) as a sort of
           // postConstruct method; that's really the only purpose of a
           // Service.
-          final Routing.Rules<?> rules = getReference(beanManager, Routing.Rules.class, qualifiersArray);
-          assert rules != null;
-          service.update(rules);
+          service.update(getReference(beanManager, Routing.Rules.class, qualifiersArray));
         }
       });
   }
@@ -320,6 +317,7 @@ public class HelidonWebServerExtension implements javax.enterprise.inject.spi.Ex
 
           final WebServer webServer = getReference(beanManager, WebServer.class, qualifiersArray);
           assert webServer != null;
+
           webServer.whenShutdown()
             .whenComplete((ws, throwable) -> {
                 try {
@@ -334,6 +332,7 @@ public class HelidonWebServerExtension implements javax.enterprise.inject.spi.Ex
                   webServersLatch.countDown();
                 }
               });
+          
           webServer.start()
             .whenComplete((ws, throwable) -> {
                 if (throwable != null) {

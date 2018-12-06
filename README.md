@@ -1,5 +1,8 @@
 # microBean Helidon WebServer CDI
 
+[![Build Status](https://travis-ci.org/microbean/microbean-helidon-webserver-cdi.svg?branch=master)](https://travis-ci.org/microbean/microbean-helidon-webserver-cdi)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.microbean/microbean-helidon-webserver-cdi/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.microbean/microbean-helidon-webserver-cdi)
+
 This project consists of a [CDI portable
 extension](http://docs.jboss.org/cdi/spec/2.0/cdi-spec.html#spi) that
 embeds a [Helidon
