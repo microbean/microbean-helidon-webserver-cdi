@@ -148,7 +148,8 @@ public class TestBasicScenario {
     public void update(final Routing.Rules rules) {
       assertNotNull(rules);
       System.out.println("*** " + this.getClass().getName() + " loaded; updating rules");
-      rules.get("/hoopy", this::hoopy);
+      // The chained get invocations here just test that the generics work
+      rules.get("/hoopy", this::hoopy).get("/blatz", this::hoopy).get("/argle", this::hoopy);
     }
 
     private void hoopy(final ServerRequest request, final ServerResponse response) {

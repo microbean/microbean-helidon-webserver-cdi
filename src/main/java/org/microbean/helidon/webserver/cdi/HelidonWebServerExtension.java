@@ -55,12 +55,14 @@ import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.Annotated;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
+import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.InjectionTarget;
 import javax.enterprise.inject.spi.InterceptionFactory;
 import javax.enterprise.inject.spi.ProcessInjectionTarget;
 
 import javax.enterprise.util.AnnotationLiteral;
+import javax.enterprise.util.TypeLiteral;
 
 import javax.inject.Qualifier;
 import javax.inject.Singleton;
@@ -91,8 +93,10 @@ import io.helidon.webserver.spi.BareResponse;
  * @author <a href="https://about.me/lairdnelson"
  * target="_parent">Laird Nelson</a>
  */
-public class HelidonWebServerExtension implements javax.enterprise.inject.spi.Extension {
+public class HelidonWebServerExtension implements Extension {
 
+  private static final Type routingRulesType = Routing.Rules.class;
+  
   private final Set<Set<Annotation>> serviceQualifiers;
 
   private volatile CountDownLatch webServersLatch;
@@ -172,7 +176,9 @@ public class HelidonWebServerExtension implements javax.enterprise.inject.spi.Ex
           // Call Service#update(Routing.Rules) as a sort of
           // postConstruct method; that's really the only purpose of a
           // Service.
-          service.update(getReference(beanManager, Routing.Rules.class, qualifiersArray));
+          @SuppressWarnings("rawtypes")
+          final Routing.Rules rules = getReference(beanManager, routingRulesType, qualifiersArray);
+          service.update(rules);
         }
       });
   }
@@ -560,7 +566,7 @@ public class HelidonWebServerExtension implements javax.enterprise.inject.spi.Ex
     return returnValue;
   }
 
-  private static <T> T getReference(final BeanManager beanManager, final Class<? extends T> cls, final Annotation... qualifiers) {
+  private static <T> T getReference(final BeanManager beanManager, final Type cls, final Annotation... qualifiers) {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(cls);
 
@@ -574,7 +580,9 @@ public class HelidonWebServerExtension implements javax.enterprise.inject.spi.Ex
     if (bean == null) {
       returnValue = null;
     } else {
-      returnValue = cls.cast(beanManager.getReference(bean, cls, beanManager.createCreationalContext(bean)));
+      @SuppressWarnings("unchecked")
+      final T temp = (T)beanManager.getReference(bean, cls, beanManager.createCreationalContext(bean));
+      returnValue = temp;
     }
     return returnValue;
   }
