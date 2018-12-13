@@ -243,7 +243,7 @@ public class HelidonWebServerExtension implements Extension {
         if (noBean(beanManager, ServerConfiguration.Builder.class, qualifiersArray)) {
           event.<ServerConfiguration.Builder>addBean()
             .addTransitiveTypeClosure(ServerConfiguration.Builder.class)
-            .scope(ApplicationScoped.class)
+            .scope(Singleton.class) // can't be ApplicationScoped because it's final :-(
             .qualifiers(qualifiers)
             .createWith(cc -> createServerConfigurationBuilder(beanManager, qualifiersArray));
         }
@@ -505,7 +505,10 @@ public class HelidonWebServerExtension implements Extension {
     final Routing routing = getReference(beanManager, Routing.class, qualifiers);
     assert routing != null;
 
-    final WebServer.Builder returnValue = WebServer.builder(routing);
+    final ServerConfiguration serverConfiguration = getReference(beanManager, ServerConfiguration.class, qualifiers);
+    assert serverConfiguration != null;
+
+    final WebServer.Builder returnValue = WebServer.builder(routing).configuration(serverConfiguration);
     assert returnValue != null;
     // Permit arbitrary customization.
     beanManager.getEvent().select(WebServer.Builder.class, qualifiers).fire(returnValue);
