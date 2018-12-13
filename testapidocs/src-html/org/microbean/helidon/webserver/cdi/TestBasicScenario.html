@@ -156,60 +156,61 @@
 <span class="sourceLineNo">148</span>    public void update(final Routing.Rules rules) {<a name="line.148"></a>
 <span class="sourceLineNo">149</span>      assertNotNull(rules);<a name="line.149"></a>
 <span class="sourceLineNo">150</span>      System.out.println("*** " + this.getClass().getName() + " loaded; updating rules");<a name="line.150"></a>
-<span class="sourceLineNo">151</span>      rules.get("/hoopy", this::hoopy);<a name="line.151"></a>
-<span class="sourceLineNo">152</span>    }<a name="line.152"></a>
-<span class="sourceLineNo">153</span><a name="line.153"></a>
-<span class="sourceLineNo">154</span>    private void hoopy(final ServerRequest request, final ServerResponse response) {<a name="line.154"></a>
-<span class="sourceLineNo">155</span>      System.out.println("*** getting content for hoopy on thread " + Thread.currentThread());<a name="line.155"></a>
-<span class="sourceLineNo">156</span>      assertNotNull(this.thing.toString()); // proves request scope works<a name="line.156"></a>
-<span class="sourceLineNo">157</span>      response.send("frood");<a name="line.157"></a>
-<span class="sourceLineNo">158</span>    }<a name="line.158"></a>
-<span class="sourceLineNo">159</span><a name="line.159"></a>
-<span class="sourceLineNo">160</span>    private static void configureRoutingBuilder(@Observes final Routing.Builder routingBuilder) {<a name="line.160"></a>
-<span class="sourceLineNo">161</span>      assertNotNull(routingBuilder);<a name="line.161"></a>
-<span class="sourceLineNo">162</span>      assertFalse(routingBuilder.getClass().isSynthetic());<a name="line.162"></a>
-<span class="sourceLineNo">163</span>      routingBuilder.get("/frood", MyService::frood); // set up a static handler<a name="line.163"></a>
-<span class="sourceLineNo">164</span>    }<a name="line.164"></a>
-<span class="sourceLineNo">165</span>    <a name="line.165"></a>
-<span class="sourceLineNo">166</span>    private static void frood(final ServerRequest request, final ServerResponse response) {<a name="line.166"></a>
-<span class="sourceLineNo">167</span>      System.out.println("*** getting content for frood on thread " + Thread.currentThread());<a name="line.167"></a>
-<span class="sourceLineNo">168</span>      response.send("hoopy"); // proves static methods as handlers works<a name="line.168"></a>
-<span class="sourceLineNo">169</span>    }<a name="line.169"></a>
-<span class="sourceLineNo">170</span><a name="line.170"></a>
-<span class="sourceLineNo">171</span>  }<a name="line.171"></a>
-<span class="sourceLineNo">172</span><a name="line.172"></a>
-<span class="sourceLineNo">173</span>  @ApplicationScoped<a name="line.173"></a>
-<span class="sourceLineNo">174</span>  private static class MyService2 implements Service {<a name="line.174"></a>
-<span class="sourceLineNo">175</span><a name="line.175"></a>
-<span class="sourceLineNo">176</span>    private final Config config;<a name="line.176"></a>
-<span class="sourceLineNo">177</span><a name="line.177"></a>
-<span class="sourceLineNo">178</span>    @Inject<a name="line.178"></a>
-<span class="sourceLineNo">179</span>    private MyService2(final Config config) {<a name="line.179"></a>
-<span class="sourceLineNo">180</span>      super();<a name="line.180"></a>
-<span class="sourceLineNo">181</span>      this.config = config;<a name="line.181"></a>
-<span class="sourceLineNo">182</span>    }<a name="line.182"></a>
-<span class="sourceLineNo">183</span><a name="line.183"></a>
-<span class="sourceLineNo">184</span>    @Override<a name="line.184"></a>
-<span class="sourceLineNo">185</span>    @SuppressWarnings("rawtypes")<a name="line.185"></a>
-<span class="sourceLineNo">186</span>    public void update(final Routing.Rules rules) {<a name="line.186"></a>
-<span class="sourceLineNo">187</span>      assertNotNull(this.config); // proves injection works<a name="line.187"></a>
-<span class="sourceLineNo">188</span>      assertNotNull(rules);<a name="line.188"></a>
-<span class="sourceLineNo">189</span>      assertNotNull(rules.toString());<a name="line.189"></a>
-<span class="sourceLineNo">190</span>      System.out.println("*** " + this.getClass().getName() + " loaded; updating rules");<a name="line.190"></a>
-<span class="sourceLineNo">191</span>    }<a name="line.191"></a>
-<span class="sourceLineNo">192</span><a name="line.192"></a>
-<span class="sourceLineNo">193</span>  }<a name="line.193"></a>
-<span class="sourceLineNo">194</span><a name="line.194"></a>
-<span class="sourceLineNo">195</span>  @RequestScoped<a name="line.195"></a>
-<span class="sourceLineNo">196</span>  private static class Thing {<a name="line.196"></a>
-<span class="sourceLineNo">197</span><a name="line.197"></a>
-<span class="sourceLineNo">198</span>    private Thing() {<a name="line.198"></a>
-<span class="sourceLineNo">199</span>      super();<a name="line.199"></a>
-<span class="sourceLineNo">200</span>    }<a name="line.200"></a>
-<span class="sourceLineNo">201</span><a name="line.201"></a>
-<span class="sourceLineNo">202</span>  }<a name="line.202"></a>
-<span class="sourceLineNo">203</span><a name="line.203"></a>
-<span class="sourceLineNo">204</span>}<a name="line.204"></a>
+<span class="sourceLineNo">151</span>      // The chained get invocations here just test that the generics work<a name="line.151"></a>
+<span class="sourceLineNo">152</span>      rules.get("/hoopy", this::hoopy).get("/blatz", this::hoopy).get("/argle", this::hoopy);<a name="line.152"></a>
+<span class="sourceLineNo">153</span>    }<a name="line.153"></a>
+<span class="sourceLineNo">154</span><a name="line.154"></a>
+<span class="sourceLineNo">155</span>    private void hoopy(final ServerRequest request, final ServerResponse response) {<a name="line.155"></a>
+<span class="sourceLineNo">156</span>      System.out.println("*** getting content for hoopy on thread " + Thread.currentThread());<a name="line.156"></a>
+<span class="sourceLineNo">157</span>      assertNotNull(this.thing.toString()); // proves request scope works<a name="line.157"></a>
+<span class="sourceLineNo">158</span>      response.send("frood");<a name="line.158"></a>
+<span class="sourceLineNo">159</span>    }<a name="line.159"></a>
+<span class="sourceLineNo">160</span><a name="line.160"></a>
+<span class="sourceLineNo">161</span>    private static void configureRoutingBuilder(@Observes final Routing.Builder routingBuilder) {<a name="line.161"></a>
+<span class="sourceLineNo">162</span>      assertNotNull(routingBuilder);<a name="line.162"></a>
+<span class="sourceLineNo">163</span>      assertFalse(routingBuilder.getClass().isSynthetic());<a name="line.163"></a>
+<span class="sourceLineNo">164</span>      routingBuilder.get("/frood", MyService::frood); // set up a static handler<a name="line.164"></a>
+<span class="sourceLineNo">165</span>    }<a name="line.165"></a>
+<span class="sourceLineNo">166</span>    <a name="line.166"></a>
+<span class="sourceLineNo">167</span>    private static void frood(final ServerRequest request, final ServerResponse response) {<a name="line.167"></a>
+<span class="sourceLineNo">168</span>      System.out.println("*** getting content for frood on thread " + Thread.currentThread());<a name="line.168"></a>
+<span class="sourceLineNo">169</span>      response.send("hoopy"); // proves static methods as handlers works<a name="line.169"></a>
+<span class="sourceLineNo">170</span>    }<a name="line.170"></a>
+<span class="sourceLineNo">171</span><a name="line.171"></a>
+<span class="sourceLineNo">172</span>  }<a name="line.172"></a>
+<span class="sourceLineNo">173</span><a name="line.173"></a>
+<span class="sourceLineNo">174</span>  @ApplicationScoped<a name="line.174"></a>
+<span class="sourceLineNo">175</span>  private static class MyService2 implements Service {<a name="line.175"></a>
+<span class="sourceLineNo">176</span><a name="line.176"></a>
+<span class="sourceLineNo">177</span>    private final Config config;<a name="line.177"></a>
+<span class="sourceLineNo">178</span><a name="line.178"></a>
+<span class="sourceLineNo">179</span>    @Inject<a name="line.179"></a>
+<span class="sourceLineNo">180</span>    private MyService2(final Config config) {<a name="line.180"></a>
+<span class="sourceLineNo">181</span>      super();<a name="line.181"></a>
+<span class="sourceLineNo">182</span>      this.config = config;<a name="line.182"></a>
+<span class="sourceLineNo">183</span>    }<a name="line.183"></a>
+<span class="sourceLineNo">184</span><a name="line.184"></a>
+<span class="sourceLineNo">185</span>    @Override<a name="line.185"></a>
+<span class="sourceLineNo">186</span>    @SuppressWarnings("rawtypes")<a name="line.186"></a>
+<span class="sourceLineNo">187</span>    public void update(final Routing.Rules rules) {<a name="line.187"></a>
+<span class="sourceLineNo">188</span>      assertNotNull(this.config); // proves injection works<a name="line.188"></a>
+<span class="sourceLineNo">189</span>      assertNotNull(rules);<a name="line.189"></a>
+<span class="sourceLineNo">190</span>      assertNotNull(rules.toString());<a name="line.190"></a>
+<span class="sourceLineNo">191</span>      System.out.println("*** " + this.getClass().getName() + " loaded; updating rules");<a name="line.191"></a>
+<span class="sourceLineNo">192</span>    }<a name="line.192"></a>
+<span class="sourceLineNo">193</span><a name="line.193"></a>
+<span class="sourceLineNo">194</span>  }<a name="line.194"></a>
+<span class="sourceLineNo">195</span><a name="line.195"></a>
+<span class="sourceLineNo">196</span>  @RequestScoped<a name="line.196"></a>
+<span class="sourceLineNo">197</span>  private static class Thing {<a name="line.197"></a>
+<span class="sourceLineNo">198</span><a name="line.198"></a>
+<span class="sourceLineNo">199</span>    private Thing() {<a name="line.199"></a>
+<span class="sourceLineNo">200</span>      super();<a name="line.200"></a>
+<span class="sourceLineNo">201</span>    }<a name="line.201"></a>
+<span class="sourceLineNo">202</span><a name="line.202"></a>
+<span class="sourceLineNo">203</span>  }<a name="line.203"></a>
+<span class="sourceLineNo">204</span><a name="line.204"></a>
+<span class="sourceLineNo">205</span>}<a name="line.205"></a>
 
 
 
