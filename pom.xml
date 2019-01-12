@@ -63,14 +63,6 @@
         <version>5.2.0</version>
         <type>jar</type>
       </dependency>
-
-      <!-- Used only for example code. -->
-      <dependency>
-        <groupId>com.h2database</groupId>
-        <artifactId>h2</artifactId>
-        <version>1.4.197</version>
-        <type>jar</type>
-      </dependency>
       
       <dependency>
         <groupId>io.helidon.webserver</groupId>
@@ -79,7 +71,17 @@
         <type>jar</type>
       </dependency>
 
-      <!-- Used only for example code. -->
+
+      <!-- Dependencies for example code only. -->
+      
+
+      <dependency>
+        <groupId>com.h2database</groupId>
+        <artifactId>h2</artifactId>
+        <version>1.4.197</version>
+        <type>jar</type>
+      </dependency>
+      
       <dependency>
         <groupId>javax.persistence</groupId>
         <artifactId>javax.persistence-api</artifactId>
@@ -87,7 +89,6 @@
         <type>jar</type>
       </dependency>
 
-      <!-- Used only for example code. -->
       <dependency>
         <groupId>javax.transaction</groupId>
         <artifactId>javax.transaction-api</artifactId>
@@ -95,7 +96,6 @@
         <type>jar</type>
       </dependency>
 
-      <!-- Used only for example code. -->
       <dependency>
         <groupId>org.eclipse.persistence</groupId>
         <artifactId>org.eclipse.persistence.jpa</artifactId>
@@ -103,7 +103,6 @@
         <type>jar</type>
       </dependency>
 
-      <!-- Used only for example code. -->
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-datasource-cdi-hikaricp</artifactId>
@@ -111,7 +110,6 @@
         <type>jar</type>
       </dependency>
       
-      <!-- Used only for example code. -->
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-jpa-weld-se</artifactId>
@@ -119,7 +117,6 @@
         <type>jar</type>
       </dependency>
 
-      <!-- Used only for example code. -->
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-eclipselink-cdi</artifactId>
@@ -127,7 +124,6 @@
         <type>jar</type>
       </dependency>
 
-      <!-- Used only for example code. -->
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-narayana-jta-cdi</artifactId>
@@ -135,7 +131,6 @@
         <type>jar</type>
       </dependency>
 
-      <!-- Used only for example code. -->
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-narayana-jta-weld-se</artifactId>
@@ -148,8 +143,10 @@
 
   <dependencies>
 
+    
     <!-- Test-scoped dependencies. -->
 
+    
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
@@ -164,7 +161,10 @@
       <scope>test</scope>
     </dependency>
 
-    <!-- Used only for example code. -->
+
+    <!-- Test-scoped dependencies used only for example code. -->
+
+    
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
@@ -173,7 +173,6 @@
       <optional>true</optional>
     </dependency>
     
-    <!-- Used only for example code. -->
     <dependency>
       <groupId>org.microbean</groupId>
       <artifactId>microbean-datasource-cdi-hikaricp</artifactId>
@@ -182,7 +181,6 @@
       <optional>true</optional>
     </dependency>
     
-    <!-- Used only for example code. -->
     <dependency>
       <groupId>org.microbean</groupId>
       <artifactId>microbean-jpa-weld-se</artifactId>
@@ -191,7 +189,6 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- Used only for example code. -->
     <dependency>
       <groupId>org.microbean</groupId>
       <artifactId>microbean-eclipselink-cdi</artifactId>
@@ -200,7 +197,6 @@
       <optional>true</optional>
     </dependency>
     
-    <!-- Used only for example code. -->
     <dependency>
       <groupId>org.microbean</groupId>
       <artifactId>microbean-narayana-jta-cdi</artifactId>
@@ -209,7 +205,6 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- Used only for example code. -->
     <dependency>
       <groupId>org.microbean</groupId>
       <artifactId>microbean-narayana-jta-weld-se</artifactId>
@@ -218,7 +213,6 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- Used only for example code. -->
     <dependency>
       <groupId>org.eclipse.persistence</groupId>
       <artifactId>org.eclipse.persistence.jpa</artifactId>
@@ -226,9 +220,11 @@
       <scope>test</scope>
       <optional>true</optional>
     </dependency>
+
     
     <!-- Runtime-scoped dependencies. -->
 
+    
     <dependency>
       <groupId>com.fasterxml.woodstox</groupId>
       <artifactId>woodstox-core</artifactId>
@@ -236,8 +232,10 @@
       <optional>true</optional>
     </dependency>
 
+    
     <!-- Provided-scoped dependencies. -->
 
+    
     <dependency>
       <groupId>org.microbean</groupId>
       <artifactId>microbean-base-specification</artifactId>
@@ -245,7 +243,10 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- Used only for example code. -->
+
+    <!-- Provided-scoped dependencies used only for example code. -->
+    
+
     <dependency>
       <groupId>javax.persistence</groupId>
       <artifactId>javax.persistence-api</artifactId>
@@ -253,7 +254,6 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- Used only for example code. -->
     <dependency>
       <groupId>javax.transaction</groupId>
       <artifactId>javax.transaction-api</artifactId>
@@ -261,14 +261,17 @@
       <optional>true</optional>
     </dependency>
 
+    
     <!-- Compile-scoped dependencies. -->
 
+    
     <dependency>
       <groupId>io.helidon.webserver</groupId>
       <artifactId>helidon-webserver</artifactId>
       <scope>compile</scope>
     </dependency>
 
+    
   </dependencies>
   
   <build>
@@ -285,6 +288,16 @@
               <additionalJOption>-J-Dhttp.agent=maven-javadoc-plugin</additionalJOption>
             </additionalJOptions>
           </configuration>
+        </plugin>
+
+        <plugin>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.1.1</version>
+        </plugin>
+
+        <plugin>
+          <artifactId>maven-project-info-reports-plugin</artifactId>
+          <version>3.0.0</version>
         </plugin>
         
         <plugin>
@@ -312,6 +325,11 @@
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>
         <configuration>
+          <archive>
+            <manifestEntries>
+              <Automatic-Module-Name>org.microbean.helidon.webserver.cdi</Automatic-Module-Name>
+            </manifestEntries>
+          </archive>
           <excludes>
             <exclude>**/examples/**</exclude>
           </excludes>
@@ -322,9 +340,7 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <systemPropertyVariables>
-            <skipClusterTests>${skipClusterTests}</skipClusterTests>
             <project.build.directory>${project.build.directory}</project.build.directory>
-            <org.slf4j.simpleLogger.log.org.jboss.weld>${org.slf4j.simpleLogger.log.org.jboss.weld}</org.slf4j.simpleLogger.log.org.jboss.weld>
           </systemPropertyVariables>
         </configuration>
       </plugin>
@@ -357,19 +373,20 @@
     <links>https://helidon.io/docs/latest/apidocs,https://docs.jboss.org/cdi/api/2.0/,https://docs.oracle.com/javaee/7/api/,https://microbean.github.io/microbean-development-annotations/apidocs/,http://jcip.net/annotations/doc/</links>
     <stylesheetfile>css/stylesheet.css</stylesheetfile>
 
-    <!-- maven-project-info-reports-plugin properties; see https://maven.apache.org/plugins/maven-project-info-reports-plugin/ -->
-    <dependency.locations.enabled>false</dependency.locations.enabled>
-    
-    <skipClusterTests>true</skipClusterTests>
-
-    <org.slf4j.simpleLogger.log.org.jboss.weld>debug</org.slf4j.simpleLogger.log.org.jboss.weld>
-
   </properties>
 
   <reporting>
     <plugins>
       <plugin>
         <artifactId>maven-javadoc-plugin</artifactId>
+        <reportSets>
+          <reportSet>
+            <reports>
+              <report>javadoc-no-fork</report>
+              <report>test-javadoc-no-fork</report>
+            </reports>
+          </reportSet>
+        </reportSets>
       </plugin>
       <plugin>
         <groupId>org.owasp</groupId>
