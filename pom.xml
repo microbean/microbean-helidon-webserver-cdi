@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>org.microbean</groupId>
@@ -10,7 +13,7 @@
     <groupId>org.microbean</groupId>
     <artifactId>microbean-pluginmanagement-pom</artifactId>
     <version>9</version>
-    <relativePath />
+    <relativePath/>
   </parent>
 
   <name>microBean Helidon Webserver CDI</name>
@@ -40,7 +43,7 @@
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-base-specification</artifactId>
-        <version>0.4.3</version>
+        <version>0.4.5</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -48,7 +51,7 @@
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-weld-se-environment</artifactId>
-        <version>0.5.1</version>
+        <version>0.5.3</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -75,14 +78,7 @@
       <dependency>
         <groupId>io.helidon.webserver</groupId>
         <artifactId>helidon-webserver</artifactId>
-        <version>0.10.5</version>
-        <type>jar</type>
-      </dependency>
-      
-      <dependency>
-        <groupId>io.helidon.webserver</groupId>
-        <artifactId>helidon-webserver-netty</artifactId>
-        <version>0.10.5</version>
+        <version>0.11.0</version>
         <type>jar</type>
       </dependency>
 
@@ -114,7 +110,7 @@
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-datasource-cdi-hikaricp</artifactId>
-        <version>0.1.2</version>
+        <version>0.1.4</version>
         <type>jar</type>
       </dependency>
       
@@ -122,7 +118,15 @@
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-jpa-weld-se</artifactId>
-        <version>0.2.0</version>
+        <version>0.2.6</version>
+        <type>jar</type>
+      </dependency>
+
+      <!-- Used only for example code. -->
+      <dependency>
+        <groupId>org.microbean</groupId>
+        <artifactId>microbean-eclipselink-cdi</artifactId>
+        <version>0.0.2</version>
         <type>jar</type>
       </dependency>
 
@@ -130,7 +134,7 @@
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-narayana-jta-cdi</artifactId>
-        <version>0.0.4</version>
+        <version>0.1.5</version>
         <type>jar</type>
       </dependency>
 
@@ -138,7 +142,7 @@
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-narayana-jta-weld-se</artifactId>
-        <version>0.0.7</version>
+        <version>0.1.2</version>
         <type>jar</type>
       </dependency>
       
@@ -193,6 +197,15 @@
     <!-- Used only for example code. -->
     <dependency>
       <groupId>org.microbean</groupId>
+      <artifactId>microbean-eclipselink-cdi</artifactId>
+      <type>jar</type>
+      <scope>test</scope>
+      <optional>true</optional>
+    </dependency>
+    
+    <!-- Used only for example code. -->
+    <dependency>
+      <groupId>org.microbean</groupId>
       <artifactId>microbean-narayana-jta-cdi</artifactId>
       <type>jar</type>
       <scope>test</scope>
@@ -224,12 +237,6 @@
       <artifactId>woodstox-core</artifactId>
       <scope>runtime</scope>
       <optional>true</optional>
-    </dependency>
-    
-    <dependency>
-      <groupId>io.helidon.webserver</groupId>
-      <artifactId>helidon-webserver-netty</artifactId>
-      <scope>runtime</scope>
     </dependency>
 
     <!-- Provided-scoped dependencies. -->
@@ -320,7 +327,6 @@
           <systemPropertyVariables>
             <skipClusterTests>${skipClusterTests}</skipClusterTests>
             <project.build.directory>${project.build.directory}</project.build.directory>
-            <org.slf4j.simpleLogger.log.io.fabric8>${org.slf4j.simpleLogger.log.io.fabric8}</org.slf4j.simpleLogger.log.io.fabric8>
             <org.slf4j.simpleLogger.log.org.jboss.weld>${org.slf4j.simpleLogger.log.org.jboss.weld}</org.slf4j.simpleLogger.log.org.jboss.weld>
           </systemPropertyVariables>
         </configuration>
@@ -359,7 +365,6 @@
     
     <skipClusterTests>true</skipClusterTests>
 
-    <org.slf4j.simpleLogger.log.io.fabric8>debug</org.slf4j.simpleLogger.log.io.fabric8>
     <org.slf4j.simpleLogger.log.org.jboss.weld>debug</org.slf4j.simpleLogger.log.org.jboss.weld>
 
   </properties>

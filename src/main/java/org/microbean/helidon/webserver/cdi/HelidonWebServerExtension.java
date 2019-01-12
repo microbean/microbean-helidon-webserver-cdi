@@ -1,6 +1,6 @@
 /* -*- mode: Java; c-basic-offset: 2; indent-tabs-mode: nil; coding: utf-8-unix -*-
  *
- * Copyright © 2018 microBean.
+ * Copyright © 2018–2019 microBean.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,23 @@ package org.microbean.helidon.webserver.cdi;
 
 import java.lang.annotation.Annotation;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
@@ -40,6 +48,7 @@ import javax.annotation.Priority;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.BeforeDestroyed;
+import javax.enterprise.context.Dependent;
 import javax.enterprise.context.Initialized;
 
 import javax.enterprise.context.control.RequestContextController;
@@ -51,23 +60,29 @@ import javax.enterprise.event.Observes;
 import javax.enterprise.inject.Any;
 import javax.enterprise.inject.Default;
 
+import javax.enterprise.inject.literal.InjectLiteral;
+
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.Annotated;
+import javax.enterprise.inject.spi.AnnotatedParameter;
+import javax.enterprise.inject.spi.AnnotatedType;
 import javax.enterprise.inject.spi.Bean;
+import javax.enterprise.inject.spi.BeanAttributes;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
-import javax.enterprise.inject.spi.InjectionTarget;
-import javax.enterprise.inject.spi.InterceptionFactory;
-import javax.enterprise.inject.spi.ProcessInjectionTarget;
+import javax.enterprise.inject.spi.ProcessAnnotatedType;
+import javax.enterprise.inject.spi.ProcessInjectionPoint;
 
-import javax.enterprise.util.AnnotationLiteral;
-import javax.enterprise.util.TypeLiteral;
+import javax.enterprise.inject.spi.configurator.AnnotatedTypeConfigurator;
 
+import javax.inject.Inject;
 import javax.inject.Qualifier;
 import javax.inject.Singleton;
 
 import javax.interceptor.Interceptor;
+
+import io.helidon.common.http.ContextualRegistry;
 
 import io.helidon.config.Config;
 
@@ -75,9 +90,10 @@ import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerConfiguration;
 import io.helidon.webserver.Service;
 import io.helidon.webserver.WebServer;
+import io.helidon.webserver.BareRequest;
+import io.helidon.webserver.BareResponse;
 
-import io.helidon.webserver.spi.BareRequest;
-import io.helidon.webserver.spi.BareResponse;
+import io.opentracing.Tracer;
 
 /**
  * A <a
@@ -95,14 +111,15 @@ import io.helidon.webserver.spi.BareResponse;
  */
 public class HelidonWebServerExtension implements Extension {
 
-  private static final Type routingRulesType = Routing.Rules.class;
-  
   private final Set<Set<Annotation>> serviceQualifiers;
 
   private volatile CountDownLatch webServersLatch;
 
   // @GuardedBy("self")
   private final Collection<Throwable> errors;
+
+  // @GuardedBy("self")
+  private final Map<Class<?>, Integer> priorities;
 
   /**
    * Creates a new {@link HelidonWebServerExtension}.
@@ -111,6 +128,7 @@ public class HelidonWebServerExtension implements Extension {
     super();
     this.errors = new ArrayList<>(3);
     this.serviceQualifiers = new HashSet<>();
+    this.priorities = new HashMap<>();
     Runtime.getRuntime().addShutdownHook(new Thread(this::shutDown));
   }
 
@@ -129,60 +147,73 @@ public class HelidonWebServerExtension implements Extension {
     }
   }
 
-  /**
-   * Modifies each {@link InjectionTarget} representing a {@link
-   * Service}-typed CDI bean in the application such that its {@link
-   * Service#update(Routing.Rules.class)} method is called during
-   * post-construction.
-   *
-   * <p>In addition, this method saves the {@link Set} of {@linkplain
-   * Qualifier qualifier annotations} found on the {@linkplain
-   * ProcessInjectionTarget#getAnnotatedType()
-   * <code>AnnotatedType</code> associated with the supplied
-   * <code>ProcessInjectionTarget</code> event} for later use.</p>
-   *
-   * @param event the {@link ProcessInjectionTarget} event being
-   * observed; must not be {@code null}
-   *
-   * @param beanManager the {@link BeanManager} for the current
-   * application; must not be {@code null}
-   *
-   * @see #serviceQualifiers
-   *
-   * @see InjectionTarget#postConstruct(Object)
-   *
-   * @see Service#update(Routing.Rules.class)
-   *
-   * @exception NullPointerException if either {@code event} or {@code
-   * beanManager} is {@code null}
-   */
-  private <T extends Service> void processServiceInjectionTarget(@Observes final ProcessInjectionTarget<T> event,
-                                                                 final BeanManager beanManager) {
-    Objects.requireNonNull(event);
-    Objects.requireNonNull(beanManager);
-    
-    final Set<Annotation> qualifiers = getQualifiers(event.getAnnotatedType());
-    assert qualifiers != null;
-    assert qualifiers.contains(Any.Literal.INSTANCE);
-    this.serviceQualifiers.add(qualifiers);
-
-    final Annotation[] qualifiersArray = qualifiers.toArray(new Annotation[qualifiers.size()]);
-    assert qualifiersArray != null;
-
-    event.setInjectionTarget(new DelegatingInjectionTarget<T>(event.getInjectionTarget()) {
-        @Override
-        public void postConstruct(final T service) {
-          super.postConstruct(service);
-          // Call Service#update(Routing.Rules) as a sort of
-          // postConstruct method; that's really the only purpose of a
-          // Service.
-          @SuppressWarnings("rawtypes")
-          final Routing.Rules rules = getReference(beanManager, routingRulesType, qualifiersArray);
-          service.update(rules);
+  private <T extends Service> void processAnnotatedType(@Observes final ProcessAnnotatedType<T> event) {
+    if (event != null) {
+      final AnnotatedType<T> annotatedType = event.getAnnotatedType();
+      assert annotatedType != null;
+      final Class<?> javaClass = annotatedType.getJavaClass();
+      assert javaClass != null;
+      final Priority priority = annotatedType.getAnnotation(Priority.class);
+      if (priority == null) {
+        synchronized (this.priorities) {
+          this.priorities.put(javaClass, Integer.valueOf(0));
         }
-      });
+      } else {
+        synchronized (this.priorities) {
+          this.priorities.put(javaClass, Integer.valueOf(priority.value()));
+        }
+      }
+      final AnnotatedTypeConfigurator<T> configurator = event.configureAnnotatedType();
+      assert configurator != null;
+      configurator.filterMethods(m -> {
+          // Find the public void update(Routing.Rules) method.
+          boolean returnValue = false;
+          if (m != null && !m.isAnnotationPresent(Inject.class)) {
+            final Method method = m.getJavaMember();
+            if (method != null &&
+                "update".equals(method.getName()) &&
+                void.class.equals(method.getReturnType())) {
+              final int modifiers = method.getModifiers();
+              if (Modifier.isPublic(modifiers) &&
+                  !Modifier.isStatic(modifiers)) {
+                final List<? extends AnnotatedParameter<?>> parameters = m.getParameters();
+                if (parameters != null && parameters.size() == 1) {
+                  final AnnotatedParameter<?> soleParameter = parameters.get(0);
+                  if (soleParameter != null) {
+                    final Parameter javaParameter = soleParameter.getJavaParameter();
+                    if (javaParameter != null &&
+                        Routing.Rules.class.equals(javaParameter.getType())) {
+                      returnValue = true;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          return returnValue;
+        })
+        .findFirst()
+        .get()
+        .add(InjectLiteral.INSTANCE);        
+    }
   }
 
+  @SuppressWarnings("rawtypes") // yes, on purpose
+  private <S extends Service> void processUpdateInjectionPoint(@Observes final ProcessInjectionPoint<S, Routing.Rules> event) {
+    if (event != null) {
+      final InjectionPoint injectionPoint = event.getInjectionPoint();
+      if (injectionPoint != null) {
+        final BeanAttributes<?> beanAttributes = injectionPoint.getBean();
+        if (beanAttributes != null) {
+          final Set<Annotation> beanQualifiers = beanAttributes.getQualifiers();
+          this.serviceQualifiers.add(beanQualifiers);
+          event.configureInjectionPoint()
+            .qualifiers(beanQualifiers);
+        }
+      }
+    }
+  }
+  
   private void addBeans(@Observes final AfterBeanDiscovery event, final BeanManager beanManager) {
     Objects.requireNonNull(event);
     Objects.requireNonNull(beanManager);
@@ -257,6 +288,24 @@ public class HelidonWebServerExtension implements Extension {
             .createWith(cc -> createServerConfiguration(beanManager, qualifiersArray));
         }
 
+        // Tracer
+        if (noBean(beanManager, Tracer.class, qualifiersArray)) {
+          event.<Tracer>addBean()
+            .addTransitiveTypeClosure(Tracer.class)
+            .scope(Dependent.class) // I guess
+            .qualifiers(qualifiers)
+            .createWith(cc -> createTracer(beanManager, qualifiersArray));
+        }
+
+        // ContextualRegistry
+        if (noBean(beanManager, ContextualRegistry.class, qualifiersArray)) {
+          event.<ContextualRegistry>addBean()
+            .addTransitiveTypeClosure(ContextualRegistry.class)
+            .scope(Dependent.class) // I guess
+            .qualifiers(qualifiers)
+            .createWith(cc -> createContextualRegistry(beanManager, qualifiersArray));
+        }
+
         // WebServer.Builder
         if (noBean(beanManager, WebServer.Builder.class, qualifiersArray)) {
           event.<WebServer.Builder>addBean()
@@ -289,87 +338,96 @@ public class HelidonWebServerExtension implements Extension {
     Objects.requireNonNull(event);
     Objects.requireNonNull(beanManager);
 
-    if (!this.serviceQualifiers.isEmpty()) {
+    try {
 
-      this.webServersLatch = new CountDownLatch(this.serviceQualifiers.size());
+      if (!this.serviceQualifiers.isEmpty()) {
 
-      for (final Set<Annotation> qualifiers : this.serviceQualifiers) {
-        assert qualifiers != null;
-        assert !qualifiers.isEmpty();
-        final Annotation[] qualifiersArray = qualifiers.toArray(new Annotation[qualifiers.size()]);
+        final int serviceQualifiersSize = this.serviceQualifiers.size();
+        this.webServersLatch = new CountDownLatch(serviceQualifiersSize);
 
-        final Set<Bean<?>> serviceBeans = beanManager.getBeans(Service.class, qualifiersArray);
-        assert serviceBeans != null;
-        if (!serviceBeans.isEmpty()) {
+        for (final Set<Annotation> qualifiers : this.serviceQualifiers) {
+          assert qualifiers != null;
+          assert !qualifiers.isEmpty();
 
-          for (final Bean<?> bean : serviceBeans) {
-            assert bean != null;
+          final Annotation[] qualifiersArray = qualifiers.toArray(new Annotation[serviceQualifiersSize]);
 
-            @SuppressWarnings("unchecked")
-            final Bean<Service> serviceBean = (Bean<Service>) bean;
+          final Set<Bean<?>> serviceBeans = new TreeSet<>(new BeanPriorityComparator());
+          serviceBeans.addAll(beanManager.getBeans(Service.class, qualifiersArray));
+        
+          if (!serviceBeans.isEmpty()) {
 
-            // Eagerly instantiate all Service instances, whether
-            // CDI's typesafe resolution mechanism would fail or not.
-            // This instantiation strategy (e.g. a direct call to
-            // Context#get(Bean, CreationalContext)) is OK here
-            // because we're not actually going to make use of the
-            // reference returned.
-            beanManager.getContext(serviceBean.getScope())
-              .get(serviceBean,
-                   beanManager.createCreationalContext(serviceBean));
+            for (final Bean<?> bean : serviceBeans) {
+              assert bean != null;
+              @SuppressWarnings("unchecked")
+                final Bean<Service> serviceBean = (Bean<Service>)bean;
 
-            // All Routings should now be set up
-          }
+              // Eagerly instantiate all Service instances, whether
+              // CDI's typesafe resolution mechanism would fail or
+              // not.  This instantiation strategy (e.g. a direct call
+              // to Context#get(Bean, CreationalContext)) is OK here
+              // because we're not actually going to make use of the
+              // reference returned.  We are using it only so that the
+              // update(Routing.Rules) methods are called before the
+              // WebServer starts.
+              beanManager.getContext(serviceBean.getScope())
+                .get(serviceBean,
+                     beanManager.createCreationalContext(serviceBean));
+            }
 
-          final WebServer webServer = getReference(beanManager, WebServer.class, qualifiersArray);
-          assert webServer != null;
+            final WebServer webServer = getReference(beanManager, WebServer.class, qualifiersArray);
+            assert webServer != null;
 
-          webServer.whenShutdown()
-            .whenComplete((ws, throwable) -> {
-                try {
-                  if (throwable != null) {
-                    synchronized (errors) {
-                      errors.add(throwable);
-                    }
-                  }
-                } finally {
-                  // Note the nesting; whether there's an error or
-                  // not!
-                  webServersLatch.countDown();
-                }
-              });
-          
-          webServer.start()
-            .whenComplete((ws, throwable) -> {
-                if (throwable != null) {
-                  if (throwable instanceof CancellationException) {
-                    assert !ws.isRunning();
-                    // The behavior of CompletableFuture is a little
-                    // tricky.  If someone shuts the webserver down
-                    // before it has finished starting, the task that
-                    // is responsible for starting it will be
-                    // cancelled.  This will cause an exceptional
-                    // completion of the start task.  That is
-                    // delivered here.  All it means is that the
-                    // webserver's startup machinery has been
-                    // cancelled explicitly.  This is not worth
-                    // re-throwing.
-                  } else {
-                    try {
+            webServer.whenShutdown()
+              .whenComplete((ws, throwable) -> {
+                  try {
+                    if (throwable != null) {
                       synchronized (errors) {
                         errors.add(throwable);
                       }
-                    } finally {
-                      // Note the nesting; only when there's an error!
-                      webServersLatch.countDown();
+                    }
+                  } finally {
+                    // Note the nesting; whether there's an error or
+                    // not!
+                    webServersLatch.countDown();
+                  }
+                });
+          
+            webServer.start()
+              .whenComplete((ws, throwable) -> {
+                  if (throwable != null) {
+                    if (throwable instanceof CancellationException) {
+                      assert !ws.isRunning();
+                      // The behavior of CompletableFuture is a little
+                      // tricky.  If someone shuts the webserver down
+                      // before it has finished starting, the task that
+                      // is responsible for starting it will be
+                      // cancelled.  This will cause an exceptional
+                      // completion of the start task.  That is
+                      // delivered here.  All it means is that the
+                      // webserver's startup machinery has been
+                      // cancelled explicitly.  This is not worth
+                      // re-throwing.
+                    } else {
+                      try {
+                        synchronized (errors) {
+                          errors.add(throwable);
+                        }
+                      } finally {
+                        // Note the nesting; only when there's an error!
+                        webServersLatch.countDown();
+                      }
                     }
                   }
-                }
-              });
+                });
 
-        }
+          }
+        }      
+
       }
-
+    } finally {
+      synchronized (this.priorities) {
+        this.priorities.clear();
+      }
     }
   }
 
@@ -410,8 +468,8 @@ public class HelidonWebServerExtension implements Extension {
    */
 
   
-  private static Config.Builder createConfigBuilder(final BeanManager beanManager,
-                                                    final Annotation... qualifiers)
+  private static final Config.Builder createConfigBuilder(final BeanManager beanManager,
+                                                          final Annotation... qualifiers)
   {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(qualifiers);
@@ -423,8 +481,8 @@ public class HelidonWebServerExtension implements Extension {
     return returnValue;
   }
 
-  private static Config createConfig(final BeanManager beanManager,
-                                     final Annotation... qualifiers)
+  private static final Config createConfig(final BeanManager beanManager,
+                                           final Annotation... qualifiers)
   {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(qualifiers);
@@ -436,8 +494,8 @@ public class HelidonWebServerExtension implements Extension {
     return returnValue;
   }
 
-  private static Routing.Builder createRoutingBuilder(final BeanManager beanManager,
-                                                      final Annotation... qualifiers)
+  private static final Routing.Builder createRoutingBuilder(final BeanManager beanManager,
+                                                            final Annotation... qualifiers)
   {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(qualifiers);
@@ -449,9 +507,9 @@ public class HelidonWebServerExtension implements Extension {
     return returnValue;
   }
 
-  private static Routing createRouting(final CreationalContext<?> cc,
-                                       final BeanManager beanManager,
-                                       final Annotation... qualifiers)
+  private static final Routing createRouting(final CreationalContext<?> cc,
+                                             final BeanManager beanManager,
+                                             final Annotation... qualifiers)
   {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(qualifiers);
@@ -467,8 +525,8 @@ public class HelidonWebServerExtension implements Extension {
     return returnValue;
   }
 
-  private static ServerConfiguration.Builder createServerConfigurationBuilder(final BeanManager beanManager,
-                                                                              final Annotation... qualifiers)
+  private static final ServerConfiguration.Builder createServerConfigurationBuilder(final BeanManager beanManager,
+                                                                                    final Annotation... qualifiers)
   {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(qualifiers);
@@ -483,8 +541,8 @@ public class HelidonWebServerExtension implements Extension {
     return returnValue;
   }
 
-  private static ServerConfiguration createServerConfiguration(final BeanManager beanManager,
-                                                               final Annotation... qualifiers)
+  private static final ServerConfiguration createServerConfiguration(final BeanManager beanManager,
+                                                                     final Annotation... qualifiers)
   {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(qualifiers);
@@ -496,8 +554,36 @@ public class HelidonWebServerExtension implements Extension {
     return returnValue;
   }
 
-  private static WebServer.Builder createWebServerBuilder(final BeanManager beanManager,
-                                                          final Annotation... qualifiers)
+  private static final Tracer createTracer(final BeanManager beanManager,
+                                     final Annotation... qualifiers)
+  {
+    Objects.requireNonNull(beanManager);
+    Objects.requireNonNull(qualifiers);
+
+    final ServerConfiguration serverConfiguration = getReference(beanManager, ServerConfiguration.class, qualifiers);
+    assert serverConfiguration != null;
+
+    final Tracer returnValue = serverConfiguration.tracer();
+    assert returnValue != null;
+    return returnValue;
+  }
+
+  private static final ContextualRegistry createContextualRegistry(final BeanManager beanManager,
+                                                                   final Annotation... qualifiers)
+  {
+    Objects.requireNonNull(beanManager);
+    Objects.requireNonNull(qualifiers);
+
+    final WebServer webServer = getReference(beanManager, WebServer.class, qualifiers);
+    assert webServer != null;
+
+    final ContextualRegistry returnValue = webServer.context();
+    assert returnValue != null;
+    return returnValue;
+  }
+
+  private static final WebServer.Builder createWebServerBuilder(final BeanManager beanManager,
+                                                                final Annotation... qualifiers)
   {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(qualifiers);
@@ -508,15 +594,15 @@ public class HelidonWebServerExtension implements Extension {
     final ServerConfiguration serverConfiguration = getReference(beanManager, ServerConfiguration.class, qualifiers);
     assert serverConfiguration != null;
 
-    final WebServer.Builder returnValue = WebServer.builder(routing).configuration(serverConfiguration);
+    final WebServer.Builder returnValue = WebServer.builder(routing).config(serverConfiguration);
     assert returnValue != null;
     // Permit arbitrary customization.
     beanManager.getEvent().select(WebServer.Builder.class, qualifiers).fire(returnValue);
     return returnValue;
   }
 
-  private static WebServer createWebServer(final BeanManager beanManager,
-                                           final Annotation... qualifiers)
+  private static final WebServer createWebServer(final BeanManager beanManager,
+                                                 final Annotation... qualifiers)
   {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(qualifiers);
@@ -529,8 +615,8 @@ public class HelidonWebServerExtension implements Extension {
     return returnValue;
   }
 
-  private static void destroyWebServer(final WebServer webServer,
-                                       final CreationalContext<WebServer> cc)
+  private static final void destroyWebServer(final WebServer webServer,
+                                             final CreationalContext<WebServer> cc)
   {
     Objects.requireNonNull(webServer).shutdown();
   }
@@ -541,11 +627,11 @@ public class HelidonWebServerExtension implements Extension {
    */
 
 
-  private static Set<Annotation> getQualifiers(final Annotated type) {
+  private static final Set<Annotation> getQualifiers(final Annotated type) {
     return getQualifiers(Objects.requireNonNull(type).getAnnotations());
   }
 
-  private static Set<Annotation> getQualifiers(final Set<? extends Annotation> annotations) {
+  private static final Set<Annotation> getQualifiers(final Set<? extends Annotation> annotations) {
     final Set<Annotation> qualifiers = Objects.requireNonNull(annotations).stream()
       .filter(a -> a.annotationType().isAnnotationPresent(Qualifier.class))
       .collect(Collectors.toCollection(HashSet::new));
@@ -556,7 +642,7 @@ public class HelidonWebServerExtension implements Extension {
     return returnValue;
   }
 
-  private static boolean noBean(final BeanManager beanManager, final Type type, final Annotation... qualifiers) {
+  private static final boolean noBean(final BeanManager beanManager, final Type type, final Annotation... qualifiers) {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(type);
     final Collection<?> beans;
@@ -569,7 +655,7 @@ public class HelidonWebServerExtension implements Extension {
     return returnValue;
   }
 
-  private static <T> T getReference(final BeanManager beanManager, final Type cls, final Annotation... qualifiers) {
+  private static final <T> T getReference(final BeanManager beanManager, final Type cls, final Annotation... qualifiers) {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(cls);
 
@@ -596,47 +682,6 @@ public class HelidonWebServerExtension implements Extension {
    */
 
 
-  private static class DelegatingInjectionTarget<T> implements InjectionTarget<T> {
-
-    private final InjectionTarget<T> delegate;
-
-    private DelegatingInjectionTarget(final InjectionTarget<T> delegate) {
-      super();
-      this.delegate = Objects.requireNonNull(delegate);
-    }
-
-    @Override
-    public T produce(final CreationalContext<T> cc) {
-      return this.delegate.produce(cc);
-    }
-
-    @Override
-    public void dispose(final T service) {
-      this.delegate.dispose(service);
-    }
-
-    @Override
-    public Set<InjectionPoint> getInjectionPoints() {
-      return this.delegate.getInjectionPoints();
-    }
-
-    @Override
-    public void inject(final T service, final CreationalContext<T> cc) {
-      this.delegate.inject(service, cc);
-    }
-
-    @Override
-    public void preDestroy(final T service) {
-      this.delegate.preDestroy(service);
-    }
-
-    @Override
-    public void postConstruct(final T service) {
-      this.delegate.postConstruct(service);
-    }
-
-  }
-
   private static abstract class DelegatingRouting implements Routing {
 
     private final Routing delegate;
@@ -647,12 +692,12 @@ public class HelidonWebServerExtension implements Extension {
     }
 
     @Override
-    public WebServer createServer() {
+    public final WebServer createServer() {
       return this.delegate.createServer();
     }
 
     @Override
-    public WebServer createServer(final ServerConfiguration serverConfiguration) {
+    public final WebServer createServer(final ServerConfiguration serverConfiguration) {
       return this.delegate.createServer(serverConfiguration);
     }
 
@@ -681,7 +726,7 @@ public class HelidonWebServerExtension implements Extension {
     }
 
     @Override
-    public void route(final BareRequest request, final BareResponse response) {
+    public final void route(final BareRequest request, final BareResponse response) {
       this.executor.execute(() -> {
           super.route(request, response);
         });
@@ -699,7 +744,7 @@ public class HelidonWebServerExtension implements Extension {
     }
 
     @Override
-    public void route(final BareRequest request, final BareResponse response) {
+    public final void route(final BareRequest request, final BareResponse response) {
       try {
         this.requestContextController.activate();
         super.route(request, response);
@@ -708,6 +753,67 @@ public class HelidonWebServerExtension implements Extension {
       }
     }
 
+  }
+
+  private final class BeanPriorityComparator implements Comparator<Bean<?>> {
+
+    @Override
+    public final int compare(final Bean<?> bean1, final Bean<?> bean2) {
+      final int returnValue;
+      if (bean1 == null) {
+        if (bean2 == null) {
+          returnValue = 0;
+        } else {
+          returnValue = -1; // nulls sort "right"/to end of list
+        }
+      } else if (bean2 == null) {
+        returnValue = 1;
+      } else {
+        final int bean1Priority = getPriority(bean1);
+        final int bean2Priority = getPriority(bean2);
+        if (bean1Priority == bean2Priority) {
+          if (bean1.equals(bean2)) {
+            returnValue = 0;
+          } else {
+            returnValue = bean1.toString().compareTo(bean2.toString());
+          }
+        } else if (bean1Priority < bean2Priority) {
+          returnValue = -1;
+        } else {
+          returnValue = 1;
+        }
+      }
+      return returnValue;
+    }
+
+    private final int getPriority(final BeanAttributes<?> bean) {
+      int returnValue = 0;
+      if (bean != null) {
+        final Set<Type> types = bean.getTypes();
+        assert types != null;
+        assert !types.isEmpty();
+        for (final Type type : types) {
+          if (type instanceof Class) {
+            final Class<?> c = (Class<?>)type;
+            final Integer priorityInteger;
+            synchronized (priorities) {
+              priorityInteger = priorities.get(c);
+            }
+            if (priorityInteger == null) {
+              final Priority priority = c.getAnnotation(Priority.class);
+              if (priority != null) {
+                returnValue = priority.value();
+              }
+            } else {
+              returnValue = priorityInteger.intValue();
+              break;
+            }
+          }
+        }
+      }
+      return returnValue;      
+    }
+    
   }
 
 }

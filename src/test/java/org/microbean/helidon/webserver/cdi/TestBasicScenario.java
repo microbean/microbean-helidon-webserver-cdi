@@ -1,6 +1,6 @@
 /* -*- mode: Java; c-basic-offset: 2; indent-tabs-mode: nil; coding: utf-8-unix -*-
  *
- * Copyright © 2018 microBean.
+ * Copyright © 2018–2019 microBean.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,11 +30,15 @@ import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 
+import javax.annotation.Priority;
+
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.Initialized;
 import javax.enterprise.context.RequestScoped;
 
 import javax.enterprise.event.Observes;
+
+import javax.enterprise.inject.Produces;
 
 import javax.enterprise.inject.se.SeContainer;
 import javax.enterprise.inject.se.SeContainerInitializer;
@@ -130,9 +134,16 @@ public class TestBasicScenario {
   /*
    * Example user code exercised by test.
    */
+
+  @Produces
+  @ApplicationScoped
+  public Service produceService() {
+    return r -> {};
+  }
   
 
   @ApplicationScoped
+  @Priority(1)
   private static final class MyService implements Service {
 
     private Thing thing;
@@ -147,13 +158,10 @@ public class TestBasicScenario {
     @SuppressWarnings("rawtypes")
     public void update(final Routing.Rules rules) {
       assertNotNull(rules);
-      System.out.println("*** " + this.getClass().getName() + " loaded; updating rules");
-      // The chained get invocations here just test that the generics work
-      rules.get("/hoopy", this::hoopy).get("/blatz", this::hoopy).get("/argle", this::hoopy);
+      rules.get("/hoopy", this::hoopy);
     }
 
     private void hoopy(final ServerRequest request, final ServerResponse response) {
-      System.out.println("*** getting content for hoopy on thread " + Thread.currentThread());
       assertNotNull(this.thing.toString()); // proves request scope works
       response.send("frood");
     }
@@ -165,7 +173,6 @@ public class TestBasicScenario {
     }
     
     private static void frood(final ServerRequest request, final ServerResponse response) {
-      System.out.println("*** getting content for frood on thread " + Thread.currentThread());
       response.send("hoopy"); // proves static methods as handlers works
     }
 
@@ -188,7 +195,6 @@ public class TestBasicScenario {
       assertNotNull(this.config); // proves injection works
       assertNotNull(rules);
       assertNotNull(rules.toString());
-      System.out.println("*** " + this.getClass().getName() + " loaded; updating rules");
     }
 
   }
