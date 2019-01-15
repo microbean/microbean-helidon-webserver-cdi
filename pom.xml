@@ -306,17 +306,6 @@
           <version>1.0.5</version>
         </plugin>
 
-        <plugin>
-          <groupId>org.owasp</groupId>
-          <artifactId>dependency-check-maven</artifactId>
-          <version>3.2.1</version>
-          <configuration>
-            <failOnError>false</failOnError>
-            <name>National Vulnerability Database Report</name>
-            <suppressionFile>${basedir}/src/dependency-check/suppressions.xml</suppressionFile>
-          </configuration>
-        </plugin>
-
       </plugins>
     </pluginManagement>
     
@@ -387,10 +376,6 @@
             </reports>
           </reportSet>
         </reportSets>
-      </plugin>
-      <plugin>
-        <groupId>org.owasp</groupId>
-        <artifactId>dependency-check-maven</artifactId>
       </plugin>
     </plugins>
   </reporting>
