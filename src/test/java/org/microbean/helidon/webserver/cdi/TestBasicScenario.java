@@ -162,7 +162,6 @@ public class TestBasicScenario {
     }
     
     @Override
-    @SuppressWarnings("rawtypes")
     public void update(final Routing.Rules rules) {
       assertNotNull(rules);
       rules.get("/hoopy", this::hoopy);
@@ -200,7 +199,6 @@ public class TestBasicScenario {
     }
 
     @Override
-    @SuppressWarnings("rawtypes")
     public void update(final Routing.Rules rules) {
       assertNotNull(this.config); // proves injection works
       assertNotNull(rules);
