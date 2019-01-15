@@ -18,11 +18,13 @@ package org.microbean.helidon.webserver.cdi;
 
 import java.lang.annotation.Annotation;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -32,6 +34,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
@@ -50,6 +53,7 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.BeforeDestroyed;
 import javax.enterprise.context.Dependent;
 import javax.enterprise.context.Initialized;
+import javax.enterprise.context.RequestScoped;
 
 import javax.enterprise.context.control.RequestContextController;
 
@@ -58,6 +62,7 @@ import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.event.Observes;
 
 import javax.enterprise.inject.Any;
+import javax.enterprise.inject.CreationException;
 import javax.enterprise.inject.Default;
 
 import javax.enterprise.inject.literal.InjectLiteral;
@@ -69,8 +74,10 @@ import javax.enterprise.inject.spi.AnnotatedType;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanAttributes;
 import javax.enterprise.inject.spi.BeanManager;
+import javax.enterprise.context.spi.Context;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
+import javax.enterprise.inject.spi.InterceptionFactory;
 import javax.enterprise.inject.spi.ProcessAnnotatedType;
 import javax.enterprise.inject.spi.ProcessInjectionPoint;
 
@@ -86,12 +93,15 @@ import io.helidon.common.http.ContextualRegistry;
 
 import io.helidon.config.Config;
 
-import io.helidon.webserver.Routing;
-import io.helidon.webserver.ServerConfiguration;
-import io.helidon.webserver.Service;
-import io.helidon.webserver.WebServer;
 import io.helidon.webserver.BareRequest;
 import io.helidon.webserver.BareResponse;
+import io.helidon.webserver.Handler;
+import io.helidon.webserver.Routing;
+import io.helidon.webserver.ServerConfiguration;
+import io.helidon.webserver.ServerRequest;
+import io.helidon.webserver.ServerResponse;
+import io.helidon.webserver.Service;
+import io.helidon.webserver.WebServer;
 
 import io.opentracing.Tracer;
 
@@ -110,6 +120,10 @@ import io.opentracing.Tracer;
  * target="_parent">Laird Nelson</a>
  */
 public class HelidonWebServerExtension implements Extension {
+
+  private static final ThreadLocal<Entry<? extends ServerRequest, ? extends ServerResponse>> serverRequestThreadLocal = new ThreadLocal<>();
+
+  private static final ThreadLocal<Entry<? extends BareRequest, ? extends BareResponse>> bareRequestThreadLocal = new ThreadLocal<>();
 
   private final Set<Set<Annotation>> serviceQualifiers;
 
@@ -147,7 +161,7 @@ public class HelidonWebServerExtension implements Extension {
     }
   }
 
-  private <T extends Service> void processAnnotatedType(@Observes final ProcessAnnotatedType<T> event) {
+  private final <T extends Service> void processAnnotatedType(@Observes final ProcessAnnotatedType<T> event) {
     if (event != null) {
       final AnnotatedType<T> annotatedType = event.getAnnotatedType();
       assert annotatedType != null;
@@ -163,42 +177,39 @@ public class HelidonWebServerExtension implements Extension {
           this.priorities.put(javaClass, Integer.valueOf(priority.value()));
         }
       }
-      final AnnotatedTypeConfigurator<T> configurator = event.configureAnnotatedType();
-      assert configurator != null;
-      configurator.filterMethods(m -> {
-          // Find the public void update(Routing.Rules) method.
-          boolean returnValue = false;
-          if (m != null && !m.isAnnotationPresent(Inject.class)) {
-            final Method method = m.getJavaMember();
-            if (method != null &&
-                "update".equals(method.getName()) &&
-                void.class.equals(method.getReturnType())) {
-              final int modifiers = method.getModifiers();
-              if (Modifier.isPublic(modifiers) &&
-                  !Modifier.isStatic(modifiers)) {
-                final List<? extends AnnotatedParameter<?>> parameters = m.getParameters();
-                if (parameters != null && parameters.size() == 1) {
-                  final AnnotatedParameter<?> soleParameter = parameters.get(0);
-                  if (soleParameter != null) {
-                    final Parameter javaParameter = soleParameter.getJavaParameter();
-                    if (javaParameter != null &&
-                        Routing.Rules.class.equals(javaParameter.getType())) {
-                      returnValue = true;
+
+      event.configureAnnotatedType()
+        .filterMethods(m -> {
+            // Find the public void update(Routing.Rules) method.
+            boolean returnValue = false;
+            if (m != null && !m.isAnnotationPresent(Inject.class)) {
+              final Method method = m.getJavaMember();
+              if (method != null &&
+                  "update".equals(method.getName()) &&
+                  void.class.equals(method.getReturnType())) {
+                final int modifiers = method.getModifiers();
+                if (Modifier.isPublic(modifiers) && !Modifier.isStatic(modifiers)) {
+                  final List<? extends AnnotatedParameter<?>> parameters = m.getParameters();
+                  if (parameters != null && parameters.size() == 1) {
+                    final AnnotatedParameter<?> soleParameter = parameters.get(0);
+                    if (soleParameter != null) {
+                      final Parameter javaParameter = soleParameter.getJavaParameter();
+                      if (javaParameter != null &&
+                          Routing.Rules.class.equals(javaParameter.getType())) {
+                        returnValue = true;
+                      }
                     }
                   }
                 }
               }
             }
-          }
-          return returnValue;
-        })
+            return returnValue;
+          })
         .findFirst()
-        .get()
-        .add(InjectLiteral.INSTANCE);        
+        .ifPresent(m -> m.add(InjectLiteral.INSTANCE));
     }
   }
 
-  @SuppressWarnings("rawtypes") // yes, on purpose
   private <S extends Service> void processUpdateInjectionPoint(@Observes final ProcessInjectionPoint<S, Routing.Rules> event) {
     if (event != null) {
       final InjectionPoint injectionPoint = event.getInjectionPoint();
@@ -255,11 +266,10 @@ public class HelidonWebServerExtension implements Extension {
         if (noBean(beanManager, Routing.Rules.class, qualifiersArray)) {
           event.<Routing.Builder>addBean()
             .addTransitiveTypeClosure(Routing.Builder.class)
-            .addType(Routing.Rules.class) // have to do this because Service.update(Rules) uses raw type
             .scope(ApplicationScoped.class)
             .qualifiers(qualifiers)
             .createWith(cc -> createRoutingBuilder(beanManager, qualifiersArray));
-        }
+        }        
 
         // Routing
         if (noBean(beanManager, Routing.class, qualifiersArray)) {
@@ -267,7 +277,43 @@ public class HelidonWebServerExtension implements Extension {
             .addTransitiveTypeClosure(Routing.class)
             .scope(ApplicationScoped.class)
             .qualifiers(qualifiers)
-            .createWith(cc -> createRouting(cc, beanManager, qualifiersArray));
+            .createWith(cc -> createRouting(cc, beanManager, qualifiers, qualifiersArray));
+        }
+
+        // BareRequest
+        if (noBean(beanManager, BareRequest.class, qualifiersArray)) {
+          event.<BareRequest>addBean()
+            .addTransitiveTypeClosure(BareRequest.class)
+            .scope(RequestScoped.class)
+            .qualifiers(qualifiers)
+            .createWith(cc -> bareRequestThreadLocal.get().getKey());
+        }
+
+        // BareResponse
+        if (noBean(beanManager, BareResponse.class, qualifiersArray)) {
+          event.<BareResponse>addBean()
+            .addTransitiveTypeClosure(BareResponse.class)
+            .scope(RequestScoped.class)
+            .qualifiers(qualifiers)
+            .createWith(cc -> bareRequestThreadLocal.get().getValue());
+        }
+        
+        // ServerRequest
+        if (noBean(beanManager, ServerRequest.class, qualifiersArray)) {
+          event.<ServerRequest>addBean()
+            .addTransitiveTypeClosure(ServerRequest.class)
+            .scope(RequestScoped.class)
+            .qualifiers(qualifiers)
+            .createWith(cc -> serverRequestThreadLocal.get().getKey());
+        }
+
+        // ServerResponse
+        if (noBean(beanManager, ServerResponse.class, qualifiersArray)) {
+          event.<ServerResponse>addBean()
+            .addTransitiveTypeClosure(ServerResponse.class)
+            .scope(RequestScoped.class)
+            .qualifiers(qualifiers)
+            .createWith(cc -> serverRequestThreadLocal.get().getValue());
         }
 
         // ServerConfiguration.Builder
@@ -297,15 +343,6 @@ public class HelidonWebServerExtension implements Extension {
             .createWith(cc -> createTracer(beanManager, qualifiersArray));
         }
 
-        // ContextualRegistry
-        if (noBean(beanManager, ContextualRegistry.class, qualifiersArray)) {
-          event.<ContextualRegistry>addBean()
-            .addTransitiveTypeClosure(ContextualRegistry.class)
-            .scope(Dependent.class) // I guess
-            .qualifiers(qualifiers)
-            .createWith(cc -> createContextualRegistry(beanManager, qualifiersArray));
-        }
-
         // WebServer.Builder
         if (noBean(beanManager, WebServer.Builder.class, qualifiersArray)) {
           event.<WebServer.Builder>addBean()
@@ -330,11 +367,11 @@ public class HelidonWebServerExtension implements Extension {
     }
   }
 
-  private void onStartup(@Observes
-                         @Initialized(ApplicationScoped.class)
-                         @Priority(Interceptor.Priority.PLATFORM_BEFORE)
-                         final Object event,
-                         final BeanManager beanManager) {
+  private final void onStartup(@Observes
+                               @Initialized(ApplicationScoped.class)
+                               @Priority(Interceptor.Priority.PLATFORM_BEFORE)
+                               final Object event,
+                               final BeanManager beanManager) {
     Objects.requireNonNull(event);
     Objects.requireNonNull(beanManager);
 
@@ -359,7 +396,7 @@ public class HelidonWebServerExtension implements Extension {
             for (final Bean<?> bean : serviceBeans) {
               assert bean != null;
               @SuppressWarnings("unchecked")
-                final Bean<Service> serviceBean = (Bean<Service>)bean;
+              final Bean<Service> serviceBean = (Bean<Service>)bean;
 
               // Eagerly instantiate all Service instances, whether
               // CDI's typesafe resolution mechanism would fail or
@@ -381,14 +418,14 @@ public class HelidonWebServerExtension implements Extension {
               .whenComplete((ws, throwable) -> {
                   try {
                     if (throwable != null) {
-                      synchronized (errors) {
-                        errors.add(throwable);
+                      synchronized (this.errors) {
+                        this.errors.add(throwable);
                       }
                     }
                   } finally {
                     // Note the nesting; whether there's an error or
                     // not!
-                    webServersLatch.countDown();
+                    this.webServersLatch.countDown();
                   }
                 });
           
@@ -409,12 +446,16 @@ public class HelidonWebServerExtension implements Extension {
                       // re-throwing.
                     } else {
                       try {
-                        synchronized (errors) {
-                          errors.add(throwable);
+                        synchronized (this.errors) {
+                          this.errors.add(throwable);
                         }
                       } finally {
-                        // Note the nesting; only when there's an error!
-                        webServersLatch.countDown();
+                        // Note this happens only when throwable is
+                        // non-null, i.e. we count down the latch only
+                        // when there's an error.  Otherwise the
+                        // webserver would immediately shut down and
+                        // no requests would be handled.
+                        this.webServersLatch.countDown();
                       }
                     }
                   }
@@ -431,10 +472,10 @@ public class HelidonWebServerExtension implements Extension {
     }
   }
 
-  private void onShutdown(@Observes
-                          @BeforeDestroyed(ApplicationScoped.class)
-                          @Priority(Interceptor.Priority.PLATFORM_BEFORE - 1)
-                          final Object event)
+  private final void onShutdown(@Observes
+                                @BeforeDestroyed(ApplicationScoped.class)
+                                @Priority(Interceptor.Priority.PLATFORM_BEFORE - 1)
+                                final Object event)
     throws Throwable {
     final CountDownLatch latch = this.webServersLatch;
     if (latch != null && latch.getCount() > 0L) {
@@ -506,9 +547,10 @@ public class HelidonWebServerExtension implements Extension {
     beanManager.getEvent().select(Routing.Builder.class, qualifiers).fire(returnValue);
     return returnValue;
   }
-
-  private static final Routing createRouting(final CreationalContext<?> cc,
+  
+  private static final Routing createRouting(final CreationalContext<Routing> cc,
                                              final BeanManager beanManager,
+                                             final Set<? extends Annotation> qualifierSet,
                                              final Annotation... qualifiers)
   {
     Objects.requireNonNull(beanManager);
@@ -518,6 +560,38 @@ public class HelidonWebServerExtension implements Extension {
     assert builder != null;
     final Routing routing = builder.build();
     assert routing != null;
+
+    // Some hacking to enable RequestScoped-scoped ServerRequest beans etc.
+    Collection<?> routes = null;
+    try {
+      final Field routesField = routing.getClass().getDeclaredField("routes");
+      routesField.setAccessible(true);
+      final Object fieldValue = routesField.get(routing);
+      if (fieldValue instanceof Collection) {
+        routes = (Collection<?>)fieldValue;
+      }
+    } catch (final ReflectiveOperationException ohWell) {
+      routes = null;
+    }
+    if (routes != null && !routes.isEmpty()) {
+      try {
+        final Class<?> handlerRouteClass = Class.forName("io.helidon.webserver.HandlerRoute", true, Thread.currentThread().getContextClassLoader());
+        final Field handlerField = handlerRouteClass.getDeclaredField("handler");
+        handlerField.setAccessible(true);
+        for (final Object route : routes) {
+          if (route != null && route.getClass().equals(handlerRouteClass)) {
+            final Object handlerFieldValue = handlerField.get(route);
+            if (handlerFieldValue instanceof Handler) {
+              handlerField.set(route, new DelegatingHandler(qualifierSet, (Handler)handlerFieldValue));
+            }
+          }
+        }
+      } catch (final ReflectiveOperationException | RuntimeException creationException) {
+        throw new CreationException(creationException.getMessage(), creationException);
+      }
+    }
+    // End hacking.
+    
     final RequestContextController requestContextActivator = getReference(beanManager, RequestContextController.class);
     assert requestContextActivator != null;
     final Executor executor = getReference(beanManager, Executor.class, qualifiers);    
@@ -735,7 +809,7 @@ public class HelidonWebServerExtension implements Extension {
   }
 
   private static final class RequestContextActivatingRouting extends DelegatingRouting {
-
+    
     private final RequestContextController requestContextController;
 
     private RequestContextActivatingRouting(final Routing delegate, final RequestContextController requestContextController) {
@@ -746,13 +820,39 @@ public class HelidonWebServerExtension implements Extension {
     @Override
     public final void route(final BareRequest request, final BareResponse response) {
       try {
+        bareRequestThreadLocal.set(new SimpleImmutableEntry<>(request, response));
         this.requestContextController.activate();
         super.route(request, response);
       } finally {
         this.requestContextController.deactivate();
+        bareRequestThreadLocal.remove();
       }
     }
 
+  }
+
+  private static final class DelegatingHandler implements Handler {
+
+    private final Set<? extends Annotation> qualifierSet;
+    
+    private final Handler delegate;
+    
+    private DelegatingHandler(final Set<? extends Annotation> qualifierSet, final Handler delegate) {
+      super();
+      this.qualifierSet = qualifierSet;
+      this.delegate = Objects.requireNonNull(delegate);
+    }
+
+    @Override
+    public final void accept(final ServerRequest request, final ServerResponse response) {
+      try {
+        serverRequestThreadLocal.set(new SimpleImmutableEntry<>(request, response));
+        this.delegate.accept(request, response);
+      } finally {
+        serverRequestThreadLocal.remove();
+      }
+    }
+    
   }
 
   private final class BeanPriorityComparator implements Comparator<Bean<?>> {

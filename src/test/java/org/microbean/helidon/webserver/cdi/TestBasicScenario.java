@@ -47,6 +47,7 @@ import javax.inject.Inject;
 
 import io.helidon.config.Config;
 
+import io.helidon.webserver.BareRequest;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
 import io.helidon.webserver.ServerResponse;
@@ -148,10 +149,16 @@ public class TestBasicScenario {
 
     private Thing thing;
 
+    private ServerRequest currentRequest;
+
+    private BareRequest currentBareRequest;
+    
     @Inject
-    private MyService(final Thing thing) {
+    private MyService(final Thing thing, final ServerRequest currentRequestProxy, final BareRequest bareRequestProxy) {
       super();
       this.thing = Objects.requireNonNull(thing);
+      this.currentRequest = Objects.requireNonNull(currentRequestProxy);
+      this.currentBareRequest = Objects.requireNonNull(bareRequestProxy);
     }
     
     @Override
@@ -161,8 +168,11 @@ public class TestBasicScenario {
       rules.get("/hoopy", this::hoopy);
     }
 
+    @Deprecated
     private void hoopy(final ServerRequest request, final ServerResponse response) {
       assertNotNull(this.thing.toString()); // proves request scope works
+      assertNotNull(this.currentRequest.toString());
+      assertNotNull(this.currentBareRequest.toString());
       response.send("frood");
     }
 
