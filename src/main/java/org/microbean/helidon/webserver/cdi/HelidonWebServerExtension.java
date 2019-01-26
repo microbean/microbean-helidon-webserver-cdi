@@ -74,14 +74,10 @@ import javax.enterprise.inject.spi.AnnotatedType;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanAttributes;
 import javax.enterprise.inject.spi.BeanManager;
-import javax.enterprise.context.spi.Context;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
-import javax.enterprise.inject.spi.InterceptionFactory;
 import javax.enterprise.inject.spi.ProcessAnnotatedType;
 import javax.enterprise.inject.spi.ProcessInjectionPoint;
-
-import javax.enterprise.inject.spi.configurator.AnnotatedTypeConfigurator;
 
 import javax.inject.Inject;
 import javax.inject.Qualifier;
@@ -125,6 +121,16 @@ public class HelidonWebServerExtension implements Extension {
 
   private static final ThreadLocal<Entry<? extends BareRequest, ? extends BareResponse>> bareRequestThreadLocal = new ThreadLocal<>();
 
+  /**
+   * A {@link Set} consisting of {@link Set}s of {@link Annotation}s
+   * that are {@link Qualifier}s.
+   *
+   * <p>A {@link Set} consisting of, e.g., {@code (A)} and a {@link
+   * Set} consisting of, e.g., {@code (A, B)} will be problematic.</p>
+   *
+   * @see #addQualifiers(Set)
+   */
+  // @GuardedBy("self")
   private final Set<Set<Annotation>> serviceQualifiers;
 
   private volatile CountDownLatch webServersLatch;
@@ -178,17 +184,19 @@ public class HelidonWebServerExtension implements Extension {
         }
       }
 
+      // Turn the update(Rules) method into an injection point by
+      // adding @Inject to it if it's not already there.
       event.configureAnnotatedType()
         .filterMethods(m -> {
             // Find the public void update(Routing.Rules) method.
             boolean returnValue = false;
-            if (m != null && !m.isAnnotationPresent(Inject.class)) {
+            if (m != null && !m.isStatic() && !m.isAnnotationPresent(Inject.class)) {
               final Method method = m.getJavaMember();
               if (method != null &&
                   "update".equals(method.getName()) &&
                   void.class.equals(method.getReturnType())) {
                 final int modifiers = method.getModifiers();
-                if (Modifier.isPublic(modifiers) && !Modifier.isStatic(modifiers)) {
+                if (Modifier.isPublic(modifiers)) {
                   final List<? extends AnnotatedParameter<?>> parameters = m.getParameters();
                   if (parameters != null && parameters.size() == 1) {
                     final AnnotatedParameter<?> soleParameter = parameters.get(0);
@@ -210,6 +218,26 @@ public class HelidonWebServerExtension implements Extension {
     }
   }
 
+  /**
+   * Adds the supplied {@link Set} of qualifier annotations to this
+   * {@link HelidonWebServerExtension} so that any synthetic beans it
+   * adds will take these qualifiers into account.
+   *
+   * <p>Most users will have no need to call this method.</p>
+   *
+   * @param qualifiers the {@link Set} of qualifier annotations to
+   * add; may be {@code null}
+   *
+   * @see AfterBeanDiscovery
+   */
+  public void addQualifiers(final Set<Annotation> qualifiers) {
+    if (qualifiers != null && !qualifiers.isEmpty()) {
+      synchronized (this.serviceQualifiers) {
+        this.serviceQualifiers.add(qualifiers);
+      }
+    }
+  }
+  
   private <S extends Service> void processUpdateInjectionPoint(@Observes final ProcessInjectionPoint<S, Routing.Rules> event) {
     if (event != null) {
       final InjectionPoint injectionPoint = event.getInjectionPoint();
@@ -217,7 +245,9 @@ public class HelidonWebServerExtension implements Extension {
         final BeanAttributes<?> beanAttributes = injectionPoint.getBean();
         if (beanAttributes != null) {
           final Set<Annotation> beanQualifiers = beanAttributes.getQualifiers();
-          this.serviceQualifiers.add(beanQualifiers);
+          this.addQualifiers(beanQualifiers);
+
+          // Turn the update(Rules) method into an appropriate injection point.
           event.configureInjectionPoint()
             .qualifiers(beanQualifiers);
         }
@@ -229,141 +259,143 @@ public class HelidonWebServerExtension implements Extension {
     Objects.requireNonNull(event);
     Objects.requireNonNull(beanManager);
 
-    if (!this.serviceQualifiers.isEmpty()) {
-      for (final Set<Annotation> qualifiers : this.serviceQualifiers) {
-        assert qualifiers != null;
-        assert !qualifiers.isEmpty();
-        final Annotation[] qualifiersArray = qualifiers.toArray(new Annotation[qualifiers.size()]);
+    synchronized (this.serviceQualifiers) {
+      if (!this.serviceQualifiers.isEmpty()) {
+        for (final Set<Annotation> qualifiers : this.serviceQualifiers) {
+          assert qualifiers != null;
+          assert !qualifiers.isEmpty();
+          final Annotation[] qualifiersArray = qualifiers.toArray(new Annotation[qualifiers.size()]);
 
-        // Config.Builder
-        if (noBean(beanManager, Config.Builder.class, qualifiersArray)) {
-          event.<Config.Builder>addBean()
-            .addType(Config.Builder.class)
-            .scope(ApplicationScoped.class)
-            .qualifiers(qualifiers)
-            .createWith(cc -> createConfigBuilder(beanManager, qualifiersArray));
-        }
+          // Config.Builder
+          if (noBean(beanManager, Config.Builder.class, qualifiersArray)) {
+            event.<Config.Builder>addBean()
+              .addType(Config.Builder.class)
+              .scope(ApplicationScoped.class)
+              .qualifiers(qualifiers)
+              .createWith(cc -> createConfigBuilder(beanManager, qualifiersArray));
+          }
 
-        // Config
-        if (noBean(beanManager, Config.class, qualifiersArray)) {
-          event.<Config>addBean()
-            .addType(Config.class)
-            .scope(ApplicationScoped.class)
-            .qualifiers(qualifiers)
-            .createWith(cc -> createConfig(beanManager, qualifiersArray));
-        }
+          // Config
+          if (noBean(beanManager, Config.class, qualifiersArray)) {
+            event.<Config>addBean()
+              .addType(Config.class)
+              .scope(ApplicationScoped.class)
+              .qualifiers(qualifiers)
+              .createWith(cc -> createConfig(beanManager, qualifiersArray));
+          }
         
-        // Per-WebServer Executor
-        if (noBean(beanManager, Executor.class, qualifiersArray)) {
-          event.<Executor>addBean()
-            .addTransitiveTypeClosure(ExecutorService.class)
-            .scope(ApplicationScoped.class)
-            .qualifiers(qualifiers)
-            .createWith(cc -> Executors.newCachedThreadPool());
-        }
+          // Per-WebServer Executor
+          if (noBean(beanManager, Executor.class, qualifiersArray)) {
+            event.<Executor>addBean()
+              .addTransitiveTypeClosure(ExecutorService.class)
+              .scope(ApplicationScoped.class)
+              .qualifiers(qualifiers)
+              .createWith(cc -> Executors.newCachedThreadPool());
+          }
 
-        // Routing.Builder
-        if (noBean(beanManager, Routing.Rules.class, qualifiersArray)) {
-          event.<Routing.Builder>addBean()
-            .addTransitiveTypeClosure(Routing.Builder.class)
-            .scope(ApplicationScoped.class)
-            .qualifiers(qualifiers)
-            .createWith(cc -> createRoutingBuilder(beanManager, qualifiersArray));
-        }        
+          // Routing.Builder
+          if (noBean(beanManager, Routing.Rules.class, qualifiersArray)) {
+            event.<Routing.Builder>addBean()
+              .addTransitiveTypeClosure(Routing.Builder.class)
+              .scope(ApplicationScoped.class)
+              .qualifiers(qualifiers)
+              .createWith(cc -> createRoutingBuilder(beanManager, qualifiersArray));
+          }        
 
-        // Routing
-        if (noBean(beanManager, Routing.class, qualifiersArray)) {
-          event.<Routing>addBean()
-            .addTransitiveTypeClosure(Routing.class)
-            .scope(ApplicationScoped.class)
-            .qualifiers(qualifiers)
-            .createWith(cc -> createRouting(cc, beanManager, qualifiers, qualifiersArray));
-        }
+          // Routing
+          if (noBean(beanManager, Routing.class, qualifiersArray)) {
+            event.<Routing>addBean()
+              .addTransitiveTypeClosure(Routing.class)
+              .scope(ApplicationScoped.class)
+              .qualifiers(qualifiers)
+              .createWith(cc -> createRouting(cc, beanManager, qualifiers, qualifiersArray));
+          }
 
-        // BareRequest
-        if (noBean(beanManager, BareRequest.class, qualifiersArray)) {
-          event.<BareRequest>addBean()
-            .addTransitiveTypeClosure(BareRequest.class)
-            .scope(RequestScoped.class)
-            .qualifiers(qualifiers)
-            .createWith(cc -> bareRequestThreadLocal.get().getKey());
-        }
+          // BareRequest
+          if (noBean(beanManager, BareRequest.class, qualifiersArray)) {
+            event.<BareRequest>addBean()
+              .addTransitiveTypeClosure(BareRequest.class)
+              .scope(RequestScoped.class)
+              .qualifiers(qualifiers)
+              .createWith(cc -> bareRequestThreadLocal.get().getKey());
+          }
 
-        // BareResponse
-        if (noBean(beanManager, BareResponse.class, qualifiersArray)) {
-          event.<BareResponse>addBean()
-            .addTransitiveTypeClosure(BareResponse.class)
-            .scope(RequestScoped.class)
-            .qualifiers(qualifiers)
-            .createWith(cc -> bareRequestThreadLocal.get().getValue());
-        }
+          // BareResponse
+          if (noBean(beanManager, BareResponse.class, qualifiersArray)) {
+            event.<BareResponse>addBean()
+              .addTransitiveTypeClosure(BareResponse.class)
+              .scope(RequestScoped.class)
+              .qualifiers(qualifiers)
+              .createWith(cc -> bareRequestThreadLocal.get().getValue());
+          }
         
-        // ServerRequest
-        if (noBean(beanManager, ServerRequest.class, qualifiersArray)) {
-          event.<ServerRequest>addBean()
-            .addTransitiveTypeClosure(ServerRequest.class)
-            .scope(RequestScoped.class)
-            .qualifiers(qualifiers)
-            .createWith(cc -> serverRequestThreadLocal.get().getKey());
-        }
+          // ServerRequest
+          if (noBean(beanManager, ServerRequest.class, qualifiersArray)) {
+            event.<ServerRequest>addBean()
+              .addTransitiveTypeClosure(ServerRequest.class)
+              .scope(RequestScoped.class)
+              .qualifiers(qualifiers)
+              .createWith(cc -> serverRequestThreadLocal.get().getKey());
+          }
 
-        // ServerResponse
-        if (noBean(beanManager, ServerResponse.class, qualifiersArray)) {
-          event.<ServerResponse>addBean()
-            .addTransitiveTypeClosure(ServerResponse.class)
-            .scope(RequestScoped.class)
-            .qualifiers(qualifiers)
-            .createWith(cc -> serverRequestThreadLocal.get().getValue());
-        }
+          // ServerResponse
+          if (noBean(beanManager, ServerResponse.class, qualifiersArray)) {
+            event.<ServerResponse>addBean()
+              .addTransitiveTypeClosure(ServerResponse.class)
+              .scope(RequestScoped.class)
+              .qualifiers(qualifiers)
+              .createWith(cc -> serverRequestThreadLocal.get().getValue());
+          }
 
-        // ServerConfiguration.Builder
-        if (noBean(beanManager, ServerConfiguration.Builder.class, qualifiersArray)) {
-          event.<ServerConfiguration.Builder>addBean()
-            .addTransitiveTypeClosure(ServerConfiguration.Builder.class)
-            .scope(Singleton.class) // can't be ApplicationScoped because it's final :-(
-            .qualifiers(qualifiers)
-            .createWith(cc -> createServerConfigurationBuilder(beanManager, qualifiersArray));
-        }
+          // ServerConfiguration.Builder
+          if (noBean(beanManager, ServerConfiguration.Builder.class, qualifiersArray)) {
+            event.<ServerConfiguration.Builder>addBean()
+              .addTransitiveTypeClosure(ServerConfiguration.Builder.class)
+              .scope(Singleton.class) // can't be ApplicationScoped because it's final :-(
+              .qualifiers(qualifiers)
+              .createWith(cc -> createServerConfigurationBuilder(beanManager, qualifiersArray));
+          }
 
-        // ServerConfiguration
-        if (noBean(beanManager, ServerConfiguration.class, qualifiersArray)) {
-          event.<ServerConfiguration>addBean()
-            .addTransitiveTypeClosure(ServerConfiguration.class)
-            .scope(ApplicationScoped.class)
-            .qualifiers(qualifiers)
-            .createWith(cc -> createServerConfiguration(beanManager, qualifiersArray));
-        }
+          // ServerConfiguration
+          if (noBean(beanManager, ServerConfiguration.class, qualifiersArray)) {
+            event.<ServerConfiguration>addBean()
+              .addTransitiveTypeClosure(ServerConfiguration.class)
+              .scope(ApplicationScoped.class)
+              .qualifiers(qualifiers)
+              .createWith(cc -> createServerConfiguration(beanManager, qualifiersArray));
+          }
 
-        // Tracer
-        if (noBean(beanManager, Tracer.class, qualifiersArray)) {
-          event.<Tracer>addBean()
-            .addTransitiveTypeClosure(Tracer.class)
-            .scope(Dependent.class) // I guess
-            .qualifiers(qualifiers)
-            .createWith(cc -> createTracer(beanManager, qualifiersArray));
-        }
+          // Tracer
+          if (noBean(beanManager, Tracer.class, qualifiersArray)) {
+            event.<Tracer>addBean()
+              .addTransitiveTypeClosure(Tracer.class)
+              .scope(Dependent.class) // I guess
+              .qualifiers(qualifiers)
+              .createWith(cc -> createTracer(beanManager, qualifiersArray));
+          }
 
-        // WebServer.Builder
-        if (noBean(beanManager, WebServer.Builder.class, qualifiersArray)) {
-          event.<WebServer.Builder>addBean()
-            .addTransitiveTypeClosure(WebServer.Builder.class)
-            .scope(Singleton.class) // can't be ApplicationScoped because it's final :-(
-            .qualifiers(qualifiers)
-            .createWith(cc -> createWebServerBuilder(beanManager, qualifiersArray));
-        }
+          // WebServer.Builder
+          if (noBean(beanManager, WebServer.Builder.class, qualifiersArray)) {
+            event.<WebServer.Builder>addBean()
+              .addTransitiveTypeClosure(WebServer.Builder.class)
+              .scope(Singleton.class) // can't be ApplicationScoped because it's final :-(
+              .qualifiers(qualifiers)
+              .createWith(cc -> createWebServerBuilder(beanManager, qualifiersArray));
+          }
 
-        // WebServer
-        if (noBean(beanManager, WebServer.class, qualifiersArray)) {
-          event.<WebServer>addBean()
-            .addTransitiveTypeClosure(WebServer.class)
-            .scope(ApplicationScoped.class)
-            .qualifiers(qualifiers)
-            .createWith(cc -> createWebServer(beanManager, qualifiersArray))
-            .destroyWith(HelidonWebServerExtension::destroyWebServer);
+          // WebServer
+          if (noBean(beanManager, WebServer.class, qualifiersArray)) {
+            event.<WebServer>addBean()
+              .addTransitiveTypeClosure(WebServer.class)
+              .scope(ApplicationScoped.class)
+              .qualifiers(qualifiers)
+              .createWith(cc -> createWebServer(beanManager, qualifiersArray))
+              .destroyWith(HelidonWebServerExtension::destroyWebServer);
+          }
+
         }
 
       }
-
     }
   }
 
@@ -377,93 +409,95 @@ public class HelidonWebServerExtension implements Extension {
 
     try {
 
-      if (!this.serviceQualifiers.isEmpty()) {
+      synchronized (this.serviceQualifiers) {
+        if (!this.serviceQualifiers.isEmpty()) {
 
-        final int serviceQualifiersSize = this.serviceQualifiers.size();
-        this.webServersLatch = new CountDownLatch(serviceQualifiersSize);
+          final int serviceQualifiersSize = this.serviceQualifiers.size();
+          this.webServersLatch = new CountDownLatch(serviceQualifiersSize);
 
-        for (final Set<Annotation> qualifiers : this.serviceQualifiers) {
-          assert qualifiers != null;
-          assert !qualifiers.isEmpty();
+          for (final Set<Annotation> qualifiers : this.serviceQualifiers) {
+            assert qualifiers != null;
+            assert !qualifiers.isEmpty();
 
-          final Annotation[] qualifiersArray = qualifiers.toArray(new Annotation[serviceQualifiersSize]);
+            final Annotation[] qualifiersArray = qualifiers.toArray(new Annotation[serviceQualifiersSize]);
 
-          final Set<Bean<?>> serviceBeans = new TreeSet<>(new BeanPriorityComparator());
-          serviceBeans.addAll(beanManager.getBeans(Service.class, qualifiersArray));
+            final Set<Bean<?>> serviceBeans = new TreeSet<>(new BeanPriorityComparator());
+            serviceBeans.addAll(beanManager.getBeans(Service.class, qualifiersArray));
         
-          if (!serviceBeans.isEmpty()) {
+            if (!serviceBeans.isEmpty()) {
 
-            for (final Bean<?> bean : serviceBeans) {
-              assert bean != null;
-              @SuppressWarnings("unchecked")
-              final Bean<Service> serviceBean = (Bean<Service>)bean;
+              for (final Bean<?> bean : serviceBeans) {
+                assert bean != null;
+                @SuppressWarnings("unchecked")
+                final Bean<Service> serviceBean = (Bean<Service>)bean;
 
-              // Eagerly instantiate all Service instances, whether
-              // CDI's typesafe resolution mechanism would fail or
-              // not.  This instantiation strategy (e.g. a direct call
-              // to Context#get(Bean, CreationalContext)) is OK here
-              // because we're not actually going to make use of the
-              // reference returned.  We are using it only so that the
-              // update(Routing.Rules) methods are called before the
-              // WebServer starts.
-              beanManager.getContext(serviceBean.getScope())
-                .get(serviceBean,
-                     beanManager.createCreationalContext(serviceBean));
-            }
+                // Eagerly instantiate all Service instances, whether
+                // CDI's typesafe resolution mechanism would fail or
+                // not.  This instantiation strategy (e.g. a direct call
+                // to Context#get(Bean, CreationalContext)) is OK here
+                // because we're not actually going to make use of the
+                // reference returned.  We are using it only so that the
+                // update(Routing.Rules) methods are called before the
+                // WebServer starts.
+                beanManager.getContext(serviceBean.getScope())
+                  .get(serviceBean,
+                       beanManager.createCreationalContext(serviceBean));
+              }
 
-            final WebServer webServer = getReference(beanManager, WebServer.class, qualifiersArray);
-            assert webServer != null;
+              final WebServer webServer = getReference(beanManager, WebServer.class, qualifiersArray);
+              assert webServer != null;
 
-            webServer.whenShutdown()
-              .whenComplete((ws, throwable) -> {
-                  try {
-                    if (throwable != null) {
-                      synchronized (this.errors) {
-                        this.errors.add(throwable);
-                      }
-                    }
-                  } finally {
-                    // Note the nesting; whether there's an error or
-                    // not!
-                    this.webServersLatch.countDown();
-                  }
-                });
-          
-            webServer.start()
-              .whenComplete((ws, throwable) -> {
-                  if (throwable != null) {
-                    if (throwable instanceof CancellationException) {
-                      assert !ws.isRunning();
-                      // The behavior of CompletableFuture is a little
-                      // tricky.  If someone shuts the webserver down
-                      // before it has finished starting, the task that
-                      // is responsible for starting it will be
-                      // cancelled.  This will cause an exceptional
-                      // completion of the start task.  That is
-                      // delivered here.  All it means is that the
-                      // webserver's startup machinery has been
-                      // cancelled explicitly.  This is not worth
-                      // re-throwing.
-                    } else {
-                      try {
+              webServer.whenShutdown()
+                .whenComplete((ws, throwable) -> {
+                    try {
+                      if (throwable != null) {
                         synchronized (this.errors) {
                           this.errors.add(throwable);
                         }
-                      } finally {
-                        // Note this happens only when throwable is
-                        // non-null, i.e. we count down the latch only
-                        // when there's an error.  Otherwise the
-                        // webserver would immediately shut down and
-                        // no requests would be handled.
-                        this.webServersLatch.countDown();
+                      }
+                    } finally {
+                      // Note the nesting; whether there's an error or
+                      // not!
+                      this.webServersLatch.countDown();
+                    }
+                  });
+          
+              webServer.start()
+                .whenComplete((ws, throwable) -> {
+                    if (throwable != null) {
+                      if (throwable instanceof CancellationException) {
+                        assert !ws.isRunning();
+                        // The behavior of CompletableFuture is a little
+                        // tricky.  If someone shuts the webserver down
+                        // before it has finished starting, the task that
+                        // is responsible for starting it will be
+                        // cancelled.  This will cause an exceptional
+                        // completion of the start task.  That is
+                        // delivered here.  All it means is that the
+                        // webserver's startup machinery has been
+                        // cancelled explicitly.  This is not worth
+                        // re-throwing.
+                      } else {
+                        try {
+                          synchronized (this.errors) {
+                            this.errors.add(throwable);
+                          }
+                        } finally {
+                          // Note this happens only when throwable is
+                          // non-null, i.e. we count down the latch only
+                          // when there's an error.  Otherwise the
+                          // webserver would immediately shut down and
+                          // no requests would be handled.
+                          this.webServersLatch.countDown();
+                        }
                       }
                     }
-                  }
-                });
+                  });
 
-          }
-        }      
+            }
+          }      
 
+        }
       }
     } finally {
       synchronized (this.priorities) {
@@ -629,7 +663,7 @@ public class HelidonWebServerExtension implements Extension {
   }
 
   private static final Tracer createTracer(final BeanManager beanManager,
-                                     final Annotation... qualifiers)
+                                           final Annotation... qualifiers)
   {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(qualifiers);
@@ -744,7 +778,7 @@ public class HelidonWebServerExtension implements Extension {
       returnValue = null;
     } else {
       @SuppressWarnings("unchecked")
-      final T temp = (T)beanManager.getReference(bean, cls, beanManager.createCreationalContext(bean));
+        final T temp = (T)beanManager.getReference(bean, cls, beanManager.createCreationalContext(bean));
       returnValue = temp;
     }
     return returnValue;
