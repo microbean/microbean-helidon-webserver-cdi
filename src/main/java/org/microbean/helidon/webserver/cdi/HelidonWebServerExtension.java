@@ -735,21 +735,6 @@ public class HelidonWebServerExtension implements Extension {
    */
 
 
-  private static final Set<Annotation> getQualifiers(final Annotated type) {
-    return getQualifiers(Objects.requireNonNull(type).getAnnotations());
-  }
-
-  private static final Set<Annotation> getQualifiers(final Set<? extends Annotation> annotations) {
-    final Set<Annotation> qualifiers = Objects.requireNonNull(annotations).stream()
-      .filter(a -> a.annotationType().isAnnotationPresent(Qualifier.class))
-      .collect(Collectors.toCollection(HashSet::new));
-    assert qualifiers != null;
-    qualifiers.add(Default.Literal.INSTANCE);
-    qualifiers.add(Any.Literal.INSTANCE);
-    final Set<Annotation> returnValue = Collections.unmodifiableSet(qualifiers);
-    return returnValue;
-  }
-
   private static final boolean noBean(final BeanManager beanManager, final Type type, final Annotation... qualifiers) {
     Objects.requireNonNull(beanManager);
     Objects.requireNonNull(type);
