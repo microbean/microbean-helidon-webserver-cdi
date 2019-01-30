@@ -743,222 +743,207 @@
 <span class="sourceLineNo">735</span>   */<a name="line.735"></a>
 <span class="sourceLineNo">736</span><a name="line.736"></a>
 <span class="sourceLineNo">737</span><a name="line.737"></a>
-<span class="sourceLineNo">738</span>  private static final Set&lt;Annotation&gt; getQualifiers(final Annotated type) {<a name="line.738"></a>
-<span class="sourceLineNo">739</span>    return getQualifiers(Objects.requireNonNull(type).getAnnotations());<a name="line.739"></a>
-<span class="sourceLineNo">740</span>  }<a name="line.740"></a>
-<span class="sourceLineNo">741</span><a name="line.741"></a>
-<span class="sourceLineNo">742</span>  private static final Set&lt;Annotation&gt; getQualifiers(final Set&lt;? extends Annotation&gt; annotations) {<a name="line.742"></a>
-<span class="sourceLineNo">743</span>    final Set&lt;Annotation&gt; qualifiers = Objects.requireNonNull(annotations).stream()<a name="line.743"></a>
-<span class="sourceLineNo">744</span>      .filter(a -&gt; a.annotationType().isAnnotationPresent(Qualifier.class))<a name="line.744"></a>
-<span class="sourceLineNo">745</span>      .collect(Collectors.toCollection(HashSet::new));<a name="line.745"></a>
-<span class="sourceLineNo">746</span>    assert qualifiers != null;<a name="line.746"></a>
-<span class="sourceLineNo">747</span>    qualifiers.add(Default.Literal.INSTANCE);<a name="line.747"></a>
-<span class="sourceLineNo">748</span>    qualifiers.add(Any.Literal.INSTANCE);<a name="line.748"></a>
-<span class="sourceLineNo">749</span>    final Set&lt;Annotation&gt; returnValue = Collections.unmodifiableSet(qualifiers);<a name="line.749"></a>
-<span class="sourceLineNo">750</span>    return returnValue;<a name="line.750"></a>
-<span class="sourceLineNo">751</span>  }<a name="line.751"></a>
-<span class="sourceLineNo">752</span><a name="line.752"></a>
-<span class="sourceLineNo">753</span>  private static final boolean noBean(final BeanManager beanManager, final Type type, final Annotation... qualifiers) {<a name="line.753"></a>
-<span class="sourceLineNo">754</span>    Objects.requireNonNull(beanManager);<a name="line.754"></a>
-<span class="sourceLineNo">755</span>    Objects.requireNonNull(type);<a name="line.755"></a>
-<span class="sourceLineNo">756</span>    final Collection&lt;?&gt; beans;<a name="line.756"></a>
-<span class="sourceLineNo">757</span>    if (qualifiers == null || qualifiers.length &lt;= 0) {<a name="line.757"></a>
-<span class="sourceLineNo">758</span>      beans = beanManager.getBeans(type);<a name="line.758"></a>
-<span class="sourceLineNo">759</span>    } else {<a name="line.759"></a>
-<span class="sourceLineNo">760</span>      beans = beanManager.getBeans(type, qualifiers);<a name="line.760"></a>
-<span class="sourceLineNo">761</span>    }<a name="line.761"></a>
-<span class="sourceLineNo">762</span>    final boolean returnValue = beans == null || beans.isEmpty();<a name="line.762"></a>
-<span class="sourceLineNo">763</span>    return returnValue;<a name="line.763"></a>
-<span class="sourceLineNo">764</span>  }<a name="line.764"></a>
-<span class="sourceLineNo">765</span><a name="line.765"></a>
-<span class="sourceLineNo">766</span>  private static final &lt;T&gt; T getReference(final BeanManager beanManager, final Type cls, final Annotation... qualifiers) {<a name="line.766"></a>
-<span class="sourceLineNo">767</span>    Objects.requireNonNull(beanManager);<a name="line.767"></a>
-<span class="sourceLineNo">768</span>    Objects.requireNonNull(cls);<a name="line.768"></a>
-<span class="sourceLineNo">769</span><a name="line.769"></a>
-<span class="sourceLineNo">770</span>    final Bean&lt;?&gt; bean;    <a name="line.770"></a>
-<span class="sourceLineNo">771</span>    if (qualifiers == null || qualifiers.length &lt;= 0) {<a name="line.771"></a>
-<span class="sourceLineNo">772</span>      bean = beanManager.resolve(beanManager.getBeans(cls));<a name="line.772"></a>
-<span class="sourceLineNo">773</span>    } else {<a name="line.773"></a>
-<span class="sourceLineNo">774</span>      bean = beanManager.resolve(beanManager.getBeans(cls, qualifiers));<a name="line.774"></a>
-<span class="sourceLineNo">775</span>    }<a name="line.775"></a>
-<span class="sourceLineNo">776</span>    final T returnValue;<a name="line.776"></a>
-<span class="sourceLineNo">777</span>    if (bean == null) {<a name="line.777"></a>
-<span class="sourceLineNo">778</span>      returnValue = null;<a name="line.778"></a>
-<span class="sourceLineNo">779</span>    } else {<a name="line.779"></a>
-<span class="sourceLineNo">780</span>      @SuppressWarnings("unchecked")<a name="line.780"></a>
-<span class="sourceLineNo">781</span>        final T temp = (T)beanManager.getReference(bean, cls, beanManager.createCreationalContext(bean));<a name="line.781"></a>
-<span class="sourceLineNo">782</span>      returnValue = temp;<a name="line.782"></a>
-<span class="sourceLineNo">783</span>    }<a name="line.783"></a>
-<span class="sourceLineNo">784</span>    return returnValue;<a name="line.784"></a>
-<span class="sourceLineNo">785</span>  }<a name="line.785"></a>
+<span class="sourceLineNo">738</span>  private static final boolean noBean(final BeanManager beanManager, final Type type, final Annotation... qualifiers) {<a name="line.738"></a>
+<span class="sourceLineNo">739</span>    Objects.requireNonNull(beanManager);<a name="line.739"></a>
+<span class="sourceLineNo">740</span>    Objects.requireNonNull(type);<a name="line.740"></a>
+<span class="sourceLineNo">741</span>    final Collection&lt;?&gt; beans;<a name="line.741"></a>
+<span class="sourceLineNo">742</span>    if (qualifiers == null || qualifiers.length &lt;= 0) {<a name="line.742"></a>
+<span class="sourceLineNo">743</span>      beans = beanManager.getBeans(type);<a name="line.743"></a>
+<span class="sourceLineNo">744</span>    } else {<a name="line.744"></a>
+<span class="sourceLineNo">745</span>      beans = beanManager.getBeans(type, qualifiers);<a name="line.745"></a>
+<span class="sourceLineNo">746</span>    }<a name="line.746"></a>
+<span class="sourceLineNo">747</span>    final boolean returnValue = beans == null || beans.isEmpty();<a name="line.747"></a>
+<span class="sourceLineNo">748</span>    return returnValue;<a name="line.748"></a>
+<span class="sourceLineNo">749</span>  }<a name="line.749"></a>
+<span class="sourceLineNo">750</span><a name="line.750"></a>
+<span class="sourceLineNo">751</span>  private static final &lt;T&gt; T getReference(final BeanManager beanManager, final Type cls, final Annotation... qualifiers) {<a name="line.751"></a>
+<span class="sourceLineNo">752</span>    Objects.requireNonNull(beanManager);<a name="line.752"></a>
+<span class="sourceLineNo">753</span>    Objects.requireNonNull(cls);<a name="line.753"></a>
+<span class="sourceLineNo">754</span><a name="line.754"></a>
+<span class="sourceLineNo">755</span>    final Bean&lt;?&gt; bean;    <a name="line.755"></a>
+<span class="sourceLineNo">756</span>    if (qualifiers == null || qualifiers.length &lt;= 0) {<a name="line.756"></a>
+<span class="sourceLineNo">757</span>      bean = beanManager.resolve(beanManager.getBeans(cls));<a name="line.757"></a>
+<span class="sourceLineNo">758</span>    } else {<a name="line.758"></a>
+<span class="sourceLineNo">759</span>      bean = beanManager.resolve(beanManager.getBeans(cls, qualifiers));<a name="line.759"></a>
+<span class="sourceLineNo">760</span>    }<a name="line.760"></a>
+<span class="sourceLineNo">761</span>    final T returnValue;<a name="line.761"></a>
+<span class="sourceLineNo">762</span>    if (bean == null) {<a name="line.762"></a>
+<span class="sourceLineNo">763</span>      returnValue = null;<a name="line.763"></a>
+<span class="sourceLineNo">764</span>    } else {<a name="line.764"></a>
+<span class="sourceLineNo">765</span>      @SuppressWarnings("unchecked")<a name="line.765"></a>
+<span class="sourceLineNo">766</span>        final T temp = (T)beanManager.getReference(bean, cls, beanManager.createCreationalContext(bean));<a name="line.766"></a>
+<span class="sourceLineNo">767</span>      returnValue = temp;<a name="line.767"></a>
+<span class="sourceLineNo">768</span>    }<a name="line.768"></a>
+<span class="sourceLineNo">769</span>    return returnValue;<a name="line.769"></a>
+<span class="sourceLineNo">770</span>  }<a name="line.770"></a>
+<span class="sourceLineNo">771</span><a name="line.771"></a>
+<span class="sourceLineNo">772</span><a name="line.772"></a>
+<span class="sourceLineNo">773</span>  /*<a name="line.773"></a>
+<span class="sourceLineNo">774</span>   * Inner and nested classes.<a name="line.774"></a>
+<span class="sourceLineNo">775</span>   */<a name="line.775"></a>
+<span class="sourceLineNo">776</span><a name="line.776"></a>
+<span class="sourceLineNo">777</span><a name="line.777"></a>
+<span class="sourceLineNo">778</span>  private static abstract class DelegatingRouting implements Routing {<a name="line.778"></a>
+<span class="sourceLineNo">779</span><a name="line.779"></a>
+<span class="sourceLineNo">780</span>    private final Routing delegate;<a name="line.780"></a>
+<span class="sourceLineNo">781</span><a name="line.781"></a>
+<span class="sourceLineNo">782</span>    private DelegatingRouting(final Routing delegate) {<a name="line.782"></a>
+<span class="sourceLineNo">783</span>      super();<a name="line.783"></a>
+<span class="sourceLineNo">784</span>      this.delegate = Objects.requireNonNull(delegate);<a name="line.784"></a>
+<span class="sourceLineNo">785</span>    }<a name="line.785"></a>
 <span class="sourceLineNo">786</span><a name="line.786"></a>
-<span class="sourceLineNo">787</span><a name="line.787"></a>
-<span class="sourceLineNo">788</span>  /*<a name="line.788"></a>
-<span class="sourceLineNo">789</span>   * Inner and nested classes.<a name="line.789"></a>
-<span class="sourceLineNo">790</span>   */<a name="line.790"></a>
+<span class="sourceLineNo">787</span>    @Override<a name="line.787"></a>
+<span class="sourceLineNo">788</span>    public final WebServer createServer() {<a name="line.788"></a>
+<span class="sourceLineNo">789</span>      return this.delegate.createServer();<a name="line.789"></a>
+<span class="sourceLineNo">790</span>    }<a name="line.790"></a>
 <span class="sourceLineNo">791</span><a name="line.791"></a>
-<span class="sourceLineNo">792</span><a name="line.792"></a>
-<span class="sourceLineNo">793</span>  private static abstract class DelegatingRouting implements Routing {<a name="line.793"></a>
-<span class="sourceLineNo">794</span><a name="line.794"></a>
-<span class="sourceLineNo">795</span>    private final Routing delegate;<a name="line.795"></a>
+<span class="sourceLineNo">792</span>    @Override<a name="line.792"></a>
+<span class="sourceLineNo">793</span>    public final WebServer createServer(final ServerConfiguration serverConfiguration) {<a name="line.793"></a>
+<span class="sourceLineNo">794</span>      return this.delegate.createServer(serverConfiguration);<a name="line.794"></a>
+<span class="sourceLineNo">795</span>    }<a name="line.795"></a>
 <span class="sourceLineNo">796</span><a name="line.796"></a>
-<span class="sourceLineNo">797</span>    private DelegatingRouting(final Routing delegate) {<a name="line.797"></a>
-<span class="sourceLineNo">798</span>      super();<a name="line.798"></a>
-<span class="sourceLineNo">799</span>      this.delegate = Objects.requireNonNull(delegate);<a name="line.799"></a>
+<span class="sourceLineNo">797</span>    @Override<a name="line.797"></a>
+<span class="sourceLineNo">798</span>    public void route(final BareRequest request, final BareResponse response) {<a name="line.798"></a>
+<span class="sourceLineNo">799</span>      this.delegate.route(request, response);<a name="line.799"></a>
 <span class="sourceLineNo">800</span>    }<a name="line.800"></a>
 <span class="sourceLineNo">801</span><a name="line.801"></a>
-<span class="sourceLineNo">802</span>    @Override<a name="line.802"></a>
-<span class="sourceLineNo">803</span>    public final WebServer createServer() {<a name="line.803"></a>
-<span class="sourceLineNo">804</span>      return this.delegate.createServer();<a name="line.804"></a>
-<span class="sourceLineNo">805</span>    }<a name="line.805"></a>
-<span class="sourceLineNo">806</span><a name="line.806"></a>
-<span class="sourceLineNo">807</span>    @Override<a name="line.807"></a>
-<span class="sourceLineNo">808</span>    public final WebServer createServer(final ServerConfiguration serverConfiguration) {<a name="line.808"></a>
-<span class="sourceLineNo">809</span>      return this.delegate.createServer(serverConfiguration);<a name="line.809"></a>
+<span class="sourceLineNo">802</span>  }<a name="line.802"></a>
+<span class="sourceLineNo">803</span><a name="line.803"></a>
+<span class="sourceLineNo">804</span>  private static final class ExecutorBackedRouting extends DelegatingRouting {<a name="line.804"></a>
+<span class="sourceLineNo">805</span><a name="line.805"></a>
+<span class="sourceLineNo">806</span>    private final Executor executor;<a name="line.806"></a>
+<span class="sourceLineNo">807</span>    <a name="line.807"></a>
+<span class="sourceLineNo">808</span>    private ExecutorBackedRouting(final Routing delegate) {<a name="line.808"></a>
+<span class="sourceLineNo">809</span>      this(delegate, null);<a name="line.809"></a>
 <span class="sourceLineNo">810</span>    }<a name="line.810"></a>
 <span class="sourceLineNo">811</span><a name="line.811"></a>
-<span class="sourceLineNo">812</span>    @Override<a name="line.812"></a>
-<span class="sourceLineNo">813</span>    public void route(final BareRequest request, final BareResponse response) {<a name="line.813"></a>
-<span class="sourceLineNo">814</span>      this.delegate.route(request, response);<a name="line.814"></a>
-<span class="sourceLineNo">815</span>    }<a name="line.815"></a>
-<span class="sourceLineNo">816</span><a name="line.816"></a>
-<span class="sourceLineNo">817</span>  }<a name="line.817"></a>
-<span class="sourceLineNo">818</span><a name="line.818"></a>
-<span class="sourceLineNo">819</span>  private static final class ExecutorBackedRouting extends DelegatingRouting {<a name="line.819"></a>
+<span class="sourceLineNo">812</span>    private ExecutorBackedRouting(final Routing delegate, final Executor executor) {<a name="line.812"></a>
+<span class="sourceLineNo">813</span>      super(delegate);<a name="line.813"></a>
+<span class="sourceLineNo">814</span>      if (executor == null) {<a name="line.814"></a>
+<span class="sourceLineNo">815</span>        this.executor = runnable -&gt; runnable.run();<a name="line.815"></a>
+<span class="sourceLineNo">816</span>      } else {<a name="line.816"></a>
+<span class="sourceLineNo">817</span>        this.executor = executor;<a name="line.817"></a>
+<span class="sourceLineNo">818</span>      }<a name="line.818"></a>
+<span class="sourceLineNo">819</span>    }<a name="line.819"></a>
 <span class="sourceLineNo">820</span><a name="line.820"></a>
-<span class="sourceLineNo">821</span>    private final Executor executor;<a name="line.821"></a>
-<span class="sourceLineNo">822</span>    <a name="line.822"></a>
-<span class="sourceLineNo">823</span>    private ExecutorBackedRouting(final Routing delegate) {<a name="line.823"></a>
-<span class="sourceLineNo">824</span>      this(delegate, null);<a name="line.824"></a>
-<span class="sourceLineNo">825</span>    }<a name="line.825"></a>
-<span class="sourceLineNo">826</span><a name="line.826"></a>
-<span class="sourceLineNo">827</span>    private ExecutorBackedRouting(final Routing delegate, final Executor executor) {<a name="line.827"></a>
-<span class="sourceLineNo">828</span>      super(delegate);<a name="line.828"></a>
-<span class="sourceLineNo">829</span>      if (executor == null) {<a name="line.829"></a>
-<span class="sourceLineNo">830</span>        this.executor = runnable -&gt; runnable.run();<a name="line.830"></a>
-<span class="sourceLineNo">831</span>      } else {<a name="line.831"></a>
-<span class="sourceLineNo">832</span>        this.executor = executor;<a name="line.832"></a>
-<span class="sourceLineNo">833</span>      }<a name="line.833"></a>
-<span class="sourceLineNo">834</span>    }<a name="line.834"></a>
-<span class="sourceLineNo">835</span><a name="line.835"></a>
-<span class="sourceLineNo">836</span>    @Override<a name="line.836"></a>
-<span class="sourceLineNo">837</span>    public final void route(final BareRequest request, final BareResponse response) {<a name="line.837"></a>
-<span class="sourceLineNo">838</span>      this.executor.execute(() -&gt; {<a name="line.838"></a>
-<span class="sourceLineNo">839</span>          super.route(request, response);<a name="line.839"></a>
-<span class="sourceLineNo">840</span>        });<a name="line.840"></a>
-<span class="sourceLineNo">841</span>    }<a name="line.841"></a>
-<span class="sourceLineNo">842</span>    <a name="line.842"></a>
-<span class="sourceLineNo">843</span>  }<a name="line.843"></a>
-<span class="sourceLineNo">844</span><a name="line.844"></a>
-<span class="sourceLineNo">845</span>  private static final class RequestContextActivatingRouting extends DelegatingRouting {<a name="line.845"></a>
-<span class="sourceLineNo">846</span>    <a name="line.846"></a>
-<span class="sourceLineNo">847</span>    private final RequestContextController requestContextController;<a name="line.847"></a>
-<span class="sourceLineNo">848</span><a name="line.848"></a>
-<span class="sourceLineNo">849</span>    private RequestContextActivatingRouting(final Routing delegate, final RequestContextController requestContextController) {<a name="line.849"></a>
-<span class="sourceLineNo">850</span>      super(delegate);<a name="line.850"></a>
-<span class="sourceLineNo">851</span>      this.requestContextController = Objects.requireNonNull(requestContextController);<a name="line.851"></a>
-<span class="sourceLineNo">852</span>    }<a name="line.852"></a>
-<span class="sourceLineNo">853</span><a name="line.853"></a>
-<span class="sourceLineNo">854</span>    @Override<a name="line.854"></a>
-<span class="sourceLineNo">855</span>    public final void route(final BareRequest request, final BareResponse response) {<a name="line.855"></a>
-<span class="sourceLineNo">856</span>      try {<a name="line.856"></a>
-<span class="sourceLineNo">857</span>        bareRequestThreadLocal.set(new SimpleImmutableEntry&lt;&gt;(request, response));<a name="line.857"></a>
-<span class="sourceLineNo">858</span>        this.requestContextController.activate();<a name="line.858"></a>
-<span class="sourceLineNo">859</span>        super.route(request, response);<a name="line.859"></a>
-<span class="sourceLineNo">860</span>      } finally {<a name="line.860"></a>
-<span class="sourceLineNo">861</span>        this.requestContextController.deactivate();<a name="line.861"></a>
-<span class="sourceLineNo">862</span>        bareRequestThreadLocal.remove();<a name="line.862"></a>
-<span class="sourceLineNo">863</span>      }<a name="line.863"></a>
-<span class="sourceLineNo">864</span>    }<a name="line.864"></a>
-<span class="sourceLineNo">865</span><a name="line.865"></a>
-<span class="sourceLineNo">866</span>  }<a name="line.866"></a>
-<span class="sourceLineNo">867</span><a name="line.867"></a>
-<span class="sourceLineNo">868</span>  private static final class DelegatingHandler implements Handler {<a name="line.868"></a>
-<span class="sourceLineNo">869</span><a name="line.869"></a>
-<span class="sourceLineNo">870</span>    private final Set&lt;? extends Annotation&gt; qualifierSet;<a name="line.870"></a>
-<span class="sourceLineNo">871</span>    <a name="line.871"></a>
-<span class="sourceLineNo">872</span>    private final Handler delegate;<a name="line.872"></a>
-<span class="sourceLineNo">873</span>    <a name="line.873"></a>
-<span class="sourceLineNo">874</span>    private DelegatingHandler(final Set&lt;? extends Annotation&gt; qualifierSet, final Handler delegate) {<a name="line.874"></a>
-<span class="sourceLineNo">875</span>      super();<a name="line.875"></a>
-<span class="sourceLineNo">876</span>      this.qualifierSet = qualifierSet;<a name="line.876"></a>
-<span class="sourceLineNo">877</span>      this.delegate = Objects.requireNonNull(delegate);<a name="line.877"></a>
-<span class="sourceLineNo">878</span>    }<a name="line.878"></a>
-<span class="sourceLineNo">879</span><a name="line.879"></a>
-<span class="sourceLineNo">880</span>    @Override<a name="line.880"></a>
-<span class="sourceLineNo">881</span>    public final void accept(final ServerRequest request, final ServerResponse response) {<a name="line.881"></a>
-<span class="sourceLineNo">882</span>      try {<a name="line.882"></a>
-<span class="sourceLineNo">883</span>        serverRequestThreadLocal.set(new SimpleImmutableEntry&lt;&gt;(request, response));<a name="line.883"></a>
-<span class="sourceLineNo">884</span>        this.delegate.accept(request, response);<a name="line.884"></a>
-<span class="sourceLineNo">885</span>      } finally {<a name="line.885"></a>
-<span class="sourceLineNo">886</span>        serverRequestThreadLocal.remove();<a name="line.886"></a>
-<span class="sourceLineNo">887</span>      }<a name="line.887"></a>
-<span class="sourceLineNo">888</span>    }<a name="line.888"></a>
-<span class="sourceLineNo">889</span>    <a name="line.889"></a>
-<span class="sourceLineNo">890</span>  }<a name="line.890"></a>
-<span class="sourceLineNo">891</span><a name="line.891"></a>
-<span class="sourceLineNo">892</span>  private final class BeanPriorityComparator implements Comparator&lt;Bean&lt;?&gt;&gt; {<a name="line.892"></a>
-<span class="sourceLineNo">893</span><a name="line.893"></a>
-<span class="sourceLineNo">894</span>    @Override<a name="line.894"></a>
-<span class="sourceLineNo">895</span>    public final int compare(final Bean&lt;?&gt; bean1, final Bean&lt;?&gt; bean2) {<a name="line.895"></a>
-<span class="sourceLineNo">896</span>      final int returnValue;<a name="line.896"></a>
-<span class="sourceLineNo">897</span>      if (bean1 == null) {<a name="line.897"></a>
-<span class="sourceLineNo">898</span>        if (bean2 == null) {<a name="line.898"></a>
-<span class="sourceLineNo">899</span>          returnValue = 0;<a name="line.899"></a>
-<span class="sourceLineNo">900</span>        } else {<a name="line.900"></a>
-<span class="sourceLineNo">901</span>          returnValue = -1; // nulls sort "right"/to end of list<a name="line.901"></a>
-<span class="sourceLineNo">902</span>        }<a name="line.902"></a>
-<span class="sourceLineNo">903</span>      } else if (bean2 == null) {<a name="line.903"></a>
-<span class="sourceLineNo">904</span>        returnValue = 1;<a name="line.904"></a>
-<span class="sourceLineNo">905</span>      } else {<a name="line.905"></a>
-<span class="sourceLineNo">906</span>        final int bean1Priority = getPriority(bean1);<a name="line.906"></a>
-<span class="sourceLineNo">907</span>        final int bean2Priority = getPriority(bean2);<a name="line.907"></a>
-<span class="sourceLineNo">908</span>        if (bean1Priority == bean2Priority) {<a name="line.908"></a>
-<span class="sourceLineNo">909</span>          if (bean1.equals(bean2)) {<a name="line.909"></a>
-<span class="sourceLineNo">910</span>            returnValue = 0;<a name="line.910"></a>
-<span class="sourceLineNo">911</span>          } else {<a name="line.911"></a>
-<span class="sourceLineNo">912</span>            returnValue = bean1.toString().compareTo(bean2.toString());<a name="line.912"></a>
-<span class="sourceLineNo">913</span>          }<a name="line.913"></a>
-<span class="sourceLineNo">914</span>        } else if (bean1Priority &lt; bean2Priority) {<a name="line.914"></a>
-<span class="sourceLineNo">915</span>          returnValue = -1;<a name="line.915"></a>
-<span class="sourceLineNo">916</span>        } else {<a name="line.916"></a>
-<span class="sourceLineNo">917</span>          returnValue = 1;<a name="line.917"></a>
-<span class="sourceLineNo">918</span>        }<a name="line.918"></a>
-<span class="sourceLineNo">919</span>      }<a name="line.919"></a>
-<span class="sourceLineNo">920</span>      return returnValue;<a name="line.920"></a>
-<span class="sourceLineNo">921</span>    }<a name="line.921"></a>
-<span class="sourceLineNo">922</span><a name="line.922"></a>
-<span class="sourceLineNo">923</span>    private final int getPriority(final BeanAttributes&lt;?&gt; bean) {<a name="line.923"></a>
-<span class="sourceLineNo">924</span>      int returnValue = 0;<a name="line.924"></a>
-<span class="sourceLineNo">925</span>      if (bean != null) {<a name="line.925"></a>
-<span class="sourceLineNo">926</span>        final Set&lt;Type&gt; types = bean.getTypes();<a name="line.926"></a>
-<span class="sourceLineNo">927</span>        assert types != null;<a name="line.927"></a>
-<span class="sourceLineNo">928</span>        assert !types.isEmpty();<a name="line.928"></a>
-<span class="sourceLineNo">929</span>        for (final Type type : types) {<a name="line.929"></a>
-<span class="sourceLineNo">930</span>          if (type instanceof Class) {<a name="line.930"></a>
-<span class="sourceLineNo">931</span>            final Class&lt;?&gt; c = (Class&lt;?&gt;)type;<a name="line.931"></a>
-<span class="sourceLineNo">932</span>            final Integer priorityInteger;<a name="line.932"></a>
-<span class="sourceLineNo">933</span>            synchronized (priorities) {<a name="line.933"></a>
-<span class="sourceLineNo">934</span>              priorityInteger = priorities.get(c);<a name="line.934"></a>
-<span class="sourceLineNo">935</span>            }<a name="line.935"></a>
-<span class="sourceLineNo">936</span>            if (priorityInteger == null) {<a name="line.936"></a>
-<span class="sourceLineNo">937</span>              final Priority priority = c.getAnnotation(Priority.class);<a name="line.937"></a>
-<span class="sourceLineNo">938</span>              if (priority != null) {<a name="line.938"></a>
-<span class="sourceLineNo">939</span>                returnValue = priority.value();<a name="line.939"></a>
-<span class="sourceLineNo">940</span>              }<a name="line.940"></a>
-<span class="sourceLineNo">941</span>            } else {<a name="line.941"></a>
-<span class="sourceLineNo">942</span>              returnValue = priorityInteger.intValue();<a name="line.942"></a>
-<span class="sourceLineNo">943</span>              break;<a name="line.943"></a>
-<span class="sourceLineNo">944</span>            }<a name="line.944"></a>
-<span class="sourceLineNo">945</span>          }<a name="line.945"></a>
-<span class="sourceLineNo">946</span>        }<a name="line.946"></a>
-<span class="sourceLineNo">947</span>      }<a name="line.947"></a>
-<span class="sourceLineNo">948</span>      return returnValue;      <a name="line.948"></a>
-<span class="sourceLineNo">949</span>    }<a name="line.949"></a>
-<span class="sourceLineNo">950</span>    <a name="line.950"></a>
-<span class="sourceLineNo">951</span>  }<a name="line.951"></a>
-<span class="sourceLineNo">952</span><a name="line.952"></a>
-<span class="sourceLineNo">953</span>}<a name="line.953"></a>
+<span class="sourceLineNo">821</span>    @Override<a name="line.821"></a>
+<span class="sourceLineNo">822</span>    public final void route(final BareRequest request, final BareResponse response) {<a name="line.822"></a>
+<span class="sourceLineNo">823</span>      this.executor.execute(() -&gt; {<a name="line.823"></a>
+<span class="sourceLineNo">824</span>          super.route(request, response);<a name="line.824"></a>
+<span class="sourceLineNo">825</span>        });<a name="line.825"></a>
+<span class="sourceLineNo">826</span>    }<a name="line.826"></a>
+<span class="sourceLineNo">827</span>    <a name="line.827"></a>
+<span class="sourceLineNo">828</span>  }<a name="line.828"></a>
+<span class="sourceLineNo">829</span><a name="line.829"></a>
+<span class="sourceLineNo">830</span>  private static final class RequestContextActivatingRouting extends DelegatingRouting {<a name="line.830"></a>
+<span class="sourceLineNo">831</span>    <a name="line.831"></a>
+<span class="sourceLineNo">832</span>    private final RequestContextController requestContextController;<a name="line.832"></a>
+<span class="sourceLineNo">833</span><a name="line.833"></a>
+<span class="sourceLineNo">834</span>    private RequestContextActivatingRouting(final Routing delegate, final RequestContextController requestContextController) {<a name="line.834"></a>
+<span class="sourceLineNo">835</span>      super(delegate);<a name="line.835"></a>
+<span class="sourceLineNo">836</span>      this.requestContextController = Objects.requireNonNull(requestContextController);<a name="line.836"></a>
+<span class="sourceLineNo">837</span>    }<a name="line.837"></a>
+<span class="sourceLineNo">838</span><a name="line.838"></a>
+<span class="sourceLineNo">839</span>    @Override<a name="line.839"></a>
+<span class="sourceLineNo">840</span>    public final void route(final BareRequest request, final BareResponse response) {<a name="line.840"></a>
+<span class="sourceLineNo">841</span>      try {<a name="line.841"></a>
+<span class="sourceLineNo">842</span>        bareRequestThreadLocal.set(new SimpleImmutableEntry&lt;&gt;(request, response));<a name="line.842"></a>
+<span class="sourceLineNo">843</span>        this.requestContextController.activate();<a name="line.843"></a>
+<span class="sourceLineNo">844</span>        super.route(request, response);<a name="line.844"></a>
+<span class="sourceLineNo">845</span>      } finally {<a name="line.845"></a>
+<span class="sourceLineNo">846</span>        this.requestContextController.deactivate();<a name="line.846"></a>
+<span class="sourceLineNo">847</span>        bareRequestThreadLocal.remove();<a name="line.847"></a>
+<span class="sourceLineNo">848</span>      }<a name="line.848"></a>
+<span class="sourceLineNo">849</span>    }<a name="line.849"></a>
+<span class="sourceLineNo">850</span><a name="line.850"></a>
+<span class="sourceLineNo">851</span>  }<a name="line.851"></a>
+<span class="sourceLineNo">852</span><a name="line.852"></a>
+<span class="sourceLineNo">853</span>  private static final class DelegatingHandler implements Handler {<a name="line.853"></a>
+<span class="sourceLineNo">854</span><a name="line.854"></a>
+<span class="sourceLineNo">855</span>    private final Set&lt;? extends Annotation&gt; qualifierSet;<a name="line.855"></a>
+<span class="sourceLineNo">856</span>    <a name="line.856"></a>
+<span class="sourceLineNo">857</span>    private final Handler delegate;<a name="line.857"></a>
+<span class="sourceLineNo">858</span>    <a name="line.858"></a>
+<span class="sourceLineNo">859</span>    private DelegatingHandler(final Set&lt;? extends Annotation&gt; qualifierSet, final Handler delegate) {<a name="line.859"></a>
+<span class="sourceLineNo">860</span>      super();<a name="line.860"></a>
+<span class="sourceLineNo">861</span>      this.qualifierSet = qualifierSet;<a name="line.861"></a>
+<span class="sourceLineNo">862</span>      this.delegate = Objects.requireNonNull(delegate);<a name="line.862"></a>
+<span class="sourceLineNo">863</span>    }<a name="line.863"></a>
+<span class="sourceLineNo">864</span><a name="line.864"></a>
+<span class="sourceLineNo">865</span>    @Override<a name="line.865"></a>
+<span class="sourceLineNo">866</span>    public final void accept(final ServerRequest request, final ServerResponse response) {<a name="line.866"></a>
+<span class="sourceLineNo">867</span>      try {<a name="line.867"></a>
+<span class="sourceLineNo">868</span>        serverRequestThreadLocal.set(new SimpleImmutableEntry&lt;&gt;(request, response));<a name="line.868"></a>
+<span class="sourceLineNo">869</span>        this.delegate.accept(request, response);<a name="line.869"></a>
+<span class="sourceLineNo">870</span>      } finally {<a name="line.870"></a>
+<span class="sourceLineNo">871</span>        serverRequestThreadLocal.remove();<a name="line.871"></a>
+<span class="sourceLineNo">872</span>      }<a name="line.872"></a>
+<span class="sourceLineNo">873</span>    }<a name="line.873"></a>
+<span class="sourceLineNo">874</span>    <a name="line.874"></a>
+<span class="sourceLineNo">875</span>  }<a name="line.875"></a>
+<span class="sourceLineNo">876</span><a name="line.876"></a>
+<span class="sourceLineNo">877</span>  private final class BeanPriorityComparator implements Comparator&lt;Bean&lt;?&gt;&gt; {<a name="line.877"></a>
+<span class="sourceLineNo">878</span><a name="line.878"></a>
+<span class="sourceLineNo">879</span>    @Override<a name="line.879"></a>
+<span class="sourceLineNo">880</span>    public final int compare(final Bean&lt;?&gt; bean1, final Bean&lt;?&gt; bean2) {<a name="line.880"></a>
+<span class="sourceLineNo">881</span>      final int returnValue;<a name="line.881"></a>
+<span class="sourceLineNo">882</span>      if (bean1 == null) {<a name="line.882"></a>
+<span class="sourceLineNo">883</span>        if (bean2 == null) {<a name="line.883"></a>
+<span class="sourceLineNo">884</span>          returnValue = 0;<a name="line.884"></a>
+<span class="sourceLineNo">885</span>        } else {<a name="line.885"></a>
+<span class="sourceLineNo">886</span>          returnValue = -1; // nulls sort "right"/to end of list<a name="line.886"></a>
+<span class="sourceLineNo">887</span>        }<a name="line.887"></a>
+<span class="sourceLineNo">888</span>      } else if (bean2 == null) {<a name="line.888"></a>
+<span class="sourceLineNo">889</span>        returnValue = 1;<a name="line.889"></a>
+<span class="sourceLineNo">890</span>      } else {<a name="line.890"></a>
+<span class="sourceLineNo">891</span>        final int bean1Priority = getPriority(bean1);<a name="line.891"></a>
+<span class="sourceLineNo">892</span>        final int bean2Priority = getPriority(bean2);<a name="line.892"></a>
+<span class="sourceLineNo">893</span>        if (bean1Priority == bean2Priority) {<a name="line.893"></a>
+<span class="sourceLineNo">894</span>          if (bean1.equals(bean2)) {<a name="line.894"></a>
+<span class="sourceLineNo">895</span>            returnValue = 0;<a name="line.895"></a>
+<span class="sourceLineNo">896</span>          } else {<a name="line.896"></a>
+<span class="sourceLineNo">897</span>            returnValue = bean1.toString().compareTo(bean2.toString());<a name="line.897"></a>
+<span class="sourceLineNo">898</span>          }<a name="line.898"></a>
+<span class="sourceLineNo">899</span>        } else if (bean1Priority &lt; bean2Priority) {<a name="line.899"></a>
+<span class="sourceLineNo">900</span>          returnValue = -1;<a name="line.900"></a>
+<span class="sourceLineNo">901</span>        } else {<a name="line.901"></a>
+<span class="sourceLineNo">902</span>          returnValue = 1;<a name="line.902"></a>
+<span class="sourceLineNo">903</span>        }<a name="line.903"></a>
+<span class="sourceLineNo">904</span>      }<a name="line.904"></a>
+<span class="sourceLineNo">905</span>      return returnValue;<a name="line.905"></a>
+<span class="sourceLineNo">906</span>    }<a name="line.906"></a>
+<span class="sourceLineNo">907</span><a name="line.907"></a>
+<span class="sourceLineNo">908</span>    private final int getPriority(final BeanAttributes&lt;?&gt; bean) {<a name="line.908"></a>
+<span class="sourceLineNo">909</span>      int returnValue = 0;<a name="line.909"></a>
+<span class="sourceLineNo">910</span>      if (bean != null) {<a name="line.910"></a>
+<span class="sourceLineNo">911</span>        final Set&lt;Type&gt; types = bean.getTypes();<a name="line.911"></a>
+<span class="sourceLineNo">912</span>        assert types != null;<a name="line.912"></a>
+<span class="sourceLineNo">913</span>        assert !types.isEmpty();<a name="line.913"></a>
+<span class="sourceLineNo">914</span>        for (final Type type : types) {<a name="line.914"></a>
+<span class="sourceLineNo">915</span>          if (type instanceof Class) {<a name="line.915"></a>
+<span class="sourceLineNo">916</span>            final Class&lt;?&gt; c = (Class&lt;?&gt;)type;<a name="line.916"></a>
+<span class="sourceLineNo">917</span>            final Integer priorityInteger;<a name="line.917"></a>
+<span class="sourceLineNo">918</span>            synchronized (priorities) {<a name="line.918"></a>
+<span class="sourceLineNo">919</span>              priorityInteger = priorities.get(c);<a name="line.919"></a>
+<span class="sourceLineNo">920</span>            }<a name="line.920"></a>
+<span class="sourceLineNo">921</span>            if (priorityInteger == null) {<a name="line.921"></a>
+<span class="sourceLineNo">922</span>              final Priority priority = c.getAnnotation(Priority.class);<a name="line.922"></a>
+<span class="sourceLineNo">923</span>              if (priority != null) {<a name="line.923"></a>
+<span class="sourceLineNo">924</span>                returnValue = priority.value();<a name="line.924"></a>
+<span class="sourceLineNo">925</span>              }<a name="line.925"></a>
+<span class="sourceLineNo">926</span>            } else {<a name="line.926"></a>
+<span class="sourceLineNo">927</span>              returnValue = priorityInteger.intValue();<a name="line.927"></a>
+<span class="sourceLineNo">928</span>              break;<a name="line.928"></a>
+<span class="sourceLineNo">929</span>            }<a name="line.929"></a>
+<span class="sourceLineNo">930</span>          }<a name="line.930"></a>
+<span class="sourceLineNo">931</span>        }<a name="line.931"></a>
+<span class="sourceLineNo">932</span>      }<a name="line.932"></a>
+<span class="sourceLineNo">933</span>      return returnValue;      <a name="line.933"></a>
+<span class="sourceLineNo">934</span>    }<a name="line.934"></a>
+<span class="sourceLineNo">935</span>    <a name="line.935"></a>
+<span class="sourceLineNo">936</span>  }<a name="line.936"></a>
+<span class="sourceLineNo">937</span><a name="line.937"></a>
+<span class="sourceLineNo">938</span>}<a name="line.938"></a>
 
 
 
