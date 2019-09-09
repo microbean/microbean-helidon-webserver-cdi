@@ -12,7 +12,7 @@
   <parent>
     <groupId>org.microbean</groupId>
     <artifactId>microbean-pluginmanagement-pom</artifactId>
-    <version>10</version>
+    <version>11</version>
     <relativePath/>
   </parent>
 
@@ -43,7 +43,7 @@
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-base-specification</artifactId>
-        <version>0.4.7</version>
+        <version>0.4.8</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -51,7 +51,7 @@
       <dependency>
         <groupId>org.microbean</groupId>
         <artifactId>microbean-weld-se-environment</artifactId>
-        <version>0.6.1</version>
+        <version>0.6.2</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -70,7 +70,7 @@
       <dependency>
         <groupId>io.helidon.webserver</groupId>
         <artifactId>helidon-webserver</artifactId>
-        <version>1.0.2</version>
+        <version>1.2.1</version>
         <type>jar</type>
       </dependency>
 
@@ -143,7 +143,7 @@
         <plugin>
           <groupId>org.jboss.jandex</groupId>
           <artifactId>jandex-maven-plugin</artifactId>
-          <version>1.0.5</version>
+          <version>1.0.6</version>
         </plugin>
 
       </plugins>

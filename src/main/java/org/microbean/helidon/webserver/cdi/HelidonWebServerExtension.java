@@ -85,8 +85,6 @@ import javax.inject.Singleton;
 
 import javax.interceptor.Interceptor;
 
-import io.helidon.common.http.ContextualRegistry;
-
 import io.helidon.config.Config;
 
 import io.helidon.webserver.BareRequest;
@@ -672,20 +670,6 @@ public class HelidonWebServerExtension implements Extension {
     assert serverConfiguration != null;
 
     final Tracer returnValue = serverConfiguration.tracer();
-    assert returnValue != null;
-    return returnValue;
-  }
-
-  private static final ContextualRegistry createContextualRegistry(final BeanManager beanManager,
-                                                                   final Annotation... qualifiers)
-  {
-    Objects.requireNonNull(beanManager);
-    Objects.requireNonNull(qualifiers);
-
-    final WebServer webServer = getReference(beanManager, WebServer.class, qualifiers);
-    assert webServer != null;
-
-    final ContextualRegistry returnValue = webServer.context();
     assert returnValue != null;
     return returnValue;
   }
